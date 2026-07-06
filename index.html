@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Serverless GB Video Uploader</title>
+    <title>Serverless GB Folder Uploader</title>
     <style>
         body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 50px; text-align: center; }
         .uploader-card { background: #222; padding: 4px 30px 30px 30px; border-radius: 10px; display: inline-block; box-shadow: 0px 0px 15px rgba(0,255,100,0.1); border: 1px solid #333; }
@@ -14,16 +14,19 @@
         .progress-bar { width: 300px; background: #444; height: 20px; border-radius: 10px; overflow: hidden; display: inline-block; }
         .progress-fill { width: 0%; height: 100%; background: #00ff66; transition: width 0.2s; }
         #status { margin-top: 15px; font-weight: bold; color: #00ff66; }
+        #fileCount { color: #aaa; font-size: 14px; margin-top: 5px; }
     </style>
 </head>
 <body>
 
     <div class="uploader-card">
-        <h2>Anonymous GB Video Uploader</h2>
-        <p style="color: #aaa; font-size: 14px;">Bina login kare badi se badi video direct Drive me bhejen</p>
+        <h2>Anonymous GB Folder Uploader</h2>
+        <p style="color: #aaa; font-size: 14px;">Bina login kare poora folder (badi videos samet) Drive me bhejen</p>
         
-        <input type="file" id="videoInput" accept="video/*"><br>
-        <button id="uploadBtn" onclick="startChunkedUpload()">Upload Video</button>
+        <input type="file" id="folderInput" webkitdirectory directory multiple><br>
+        <button id="uploadBtn" onclick="startFolderUpload()">Upload Folder</button>
+
+        <div id="fileCount"></div>
 
         <div class="progress-container" id="progressContainer">
             <div class="progress-bar">
@@ -36,13 +39,13 @@
     </div>
 
     <script>
-        // 🛠️ APNI DETAILS YAHAN BHAREIN (Exposed to frontend!)
+        // 🛠️ APNI DETAILS YAHAN BHAREIN
         const CLIENT_ID = "YOUR_CLIENT_ID_HERE";
         const CLIENT_SECRET = "YOUR_CLIENT_SECRET_HERE";
         const REFRESH_TOKEN = "YOUR_REFRESH_TOKEN_HERE";
-        const FOLDER_ID = "YOUR_TARGET_FOLDER_ID_HERE"; 
+        const MAIN_FOLDER_ID = "YOUR_TARGET_FOLDER_ID_HERE"; // Jiske andar naya folder banega
 
-        // 1. Google se naya temporary Access Token maangna (bina user login ke)
+        // 1. Google se temporary Access Token lena
         async function getAccessToken() {
             try {
                 const response = await fetch('https://oauth2.googleapis.com/token', {
@@ -56,86 +59,117 @@
                     })
                 });
                 const data = await response.json();
-                if (!data.access_token) throw new Error("Token nahi mila! Credentials check karo.");
                 return data.access_token;
             } catch (err) {
                 throw new Error("Auth Failed: " + err.message);
             }
         }
 
-        // 2. Main Upload Logic (Chunk-by-Chunk)
-        async function startChunkedUpload() {
-            const fileInput = document.getElementById('videoInput');
-            const file = fileInput.files[0];
+        // 2. Drive mein naya Folder banane ka function
+        async function createNewFolderInDrive(token, folderName) {
+            const metadata = {
+                name: folderName,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [MAIN_FOLDER_ID]
+            };
+            const response = await fetch('https://www.googleapis.com/drive/v3/files', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(metadata)
+            });
+            const data = await response.json();
+            return data.id; // Naye bane folder ki ID return karega
+        }
+
+        // 3. Single File Chunk Upload Logic
+        async function uploadSingleFile(file, accessToken, targetFolderId, statusDiv, progressFill, progressText) {
+            const metadata = { name: file.name, parents: [targetFolderId] };
+            const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json; charset=UTF-8',
+                    'X-Upload-Content-Type': file.type
+                },
+                body: JSON.stringify(metadata)
+            });
+
+            const uploadUrl = initResponse.headers.get('location');
+            if (!uploadUrl) throw new Error("Google ne upload session URL nahi diya.");
+
+            const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+            let start = 0;
+
+            while (start < file.size) {
+                const end = Math.min(start + chunkSize, file.size);
+                const chunk = file.slice(start, end);
+
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Range': `bytes ${start}-${end - 1}/${file.size}` },
+                    body: chunk
+                });
+
+                if (uploadResponse.status === 308) {
+                    start = end;
+                    const percent = ((start / file.size) * 100).toFixed(2);
+                    progressFill.style.width = percent + '%';
+                    progressText.innerText = percent + '%';
+                } else if (uploadResponse.status === 200 || uploadResponse.status === 201) {
+                    progressFill.style.width = '100%';
+                    progressText.innerText = '100%';
+                    break;
+                } else {
+                    throw new Error(`Upload failed! Status: ${uploadResponse.status}`);
+                }
+            }
+        }
+
+        // 4. Main Folder Upload Manager
+        async function startFolderUpload() {
+            const fileInput = document.getElementById('folderInput');
+            const files = fileInput.files;
             const statusDiv = document.getElementById('status');
             const btn = document.getElementById('uploadBtn');
             const progressContainer = document.getElementById('progressContainer');
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
+            const fileCountDiv = document.getElementById('fileCount');
 
-            if (!file) return alert("Pehle koi video file select karo!");
+            if (files.length === 0) return alert("Pehle koi Folder select karo!");
 
             try {
                 btn.disabled = true;
+                progressContainer.style.display = 'block';
                 statusDiv.innerText = "Authenticating with Google...";
                 
-                // Access token lekar aana
                 const accessToken = await getAccessToken();
 
-                statusDiv.innerText = "Creating upload session for big file...";
+                // User ne jo folder select kiya uski top-level directory ka naam nikalna
+                const localFolderName = files[0].webkitRelativePath.split('/')[0];
                 
-                // Google Drive ko bolna ki resumable session start kare
-                const metadata = { name: file.name, parents: [FOLDER_ID] };
-                const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json; charset=UTF-8',
-                        'X-Upload-Content-Type': file.type
-                    },
-                    body: JSON.stringify(metadata)
-                });
+                statusDiv.innerText = `Drive me naya folder '${localFolderName}' bana rahe hain...`;
+                const destinationFolderId = await createNewFolderInDrive(accessToken, localFolderName);
 
-                // Google se unique Session URL nikalna
-                const uploadUrl = initResponse.headers.get('location');
-                if (!uploadUrl) throw new Error("Google ne upload session URL nahi diya.");
+                // Ek-ek karke saari files ko naye folder me upload karna
+                for (let i = 0; i < files.length; i++) {
+                    const currentFile = files[i];
+                    fileCountDiv.innerText = `Uploading File ${i + 1} of ${files.length}`;
+                    statusDiv.innerText = `Uploading: ${currentFile.name}`;
+                    
+                    // Reset progress bar for current file
+                    progressFill.style.width = '0%';
+                    progressText.innerText = '0%';
 
-                progressContainer.style.display = 'block';
-                statusDiv.innerText = "Uploading chunks directly to Google Drive...";
-
-                // Badi file ko todne ka size (5MB ka ek chunk - Google ke hisab se 256KB ka multiple hona chahiye)
-                const chunkSize = 5 * 1024 * 1024; 
-                let start = 0;
-
-                // Loop jo file khatam hone tak chalega
-                while (start < file.size) {
-                    const end = Math.min(start + chunkSize, file.size);
-                    const chunk = file.slice(start, end);
-
-                    const uploadResponse = await fetch(uploadUrl, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Range': `bytes ${start}-${end - 1}/${file.size}`
-                        },
-                        body: chunk
-                    });
-
-                    if (uploadResponse.status === 308) {
-                        // 308 matlab yeh chunk chala gaya, agla bhejo
-                        start = end;
-                        const percent = ((start / file.size) * 100).toFixed(2);
-                        progressFill.style.width = percent + '%';
-                        progressText.innerText = percent + '%';
-                    } else if (uploadResponse.status === 200 || uploadResponse.status === 201) {
-                        // Upload khatam
-                        progressFill.style.width = '100%';
-                        progressText.innerText = '100%';
-                        statusDiv.innerText = "🎉 Video Successfully Uploaded!";
-                        break;
-                    } else {
-                        throw new Error(`Upload break ho gaya! Status: ${uploadResponse.status}`);
-                    }
+                    await uploadSingleFile(currentFile, accessToken, destinationFolderId, statusDiv, progressFill, progressText);
                 }
+
+                fileCountDiv.innerText = "";
+                statusDiv.style.color = "#00ff66";
+                statusDiv.innerText = `🎉 Poora folder '${localFolderName}' aur uski saari files kamyabi se upload ho gayi hain!`;
 
             } catch (error) {
                 statusDiv.style.color = "red";
@@ -143,6 +177,7 @@
                 console.error(error);
             } finally {
                 btn.disabled = false;
+                fileInput.value = "";
             }
         }
     </script>
