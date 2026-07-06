@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serverless GB Video Uploader</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 50px; text-align: center; }
+        .uploader-card { background: #222; padding: 4px 30px 30px 30px; border-radius: 10px; display: inline-block; box-shadow: 0px 0px 15px rgba(0,255,100,0.1); border: 1px solid #333; }
+        input[type="file"] { margin: 20px 0; background: #333; padding: 10px; border-radius: 5px; color: #fff; }
+        button { background: #00ff66; color: #000; font-weight: bold; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        .progress-container { margin-top: 20px; display: none; }
+        .progress-bar { width: 300px; background: #444; height: 20px; border-radius: 10px; overflow: hidden; display: inline-block; }
+        .progress-fill { width: 0%; height: 100%; background: #00ff66; transition: width 0.2s; }
+        #status { margin-top: 15px; font-weight: bold; color: #00ff66; }
+    </style>
+</head>
+<body>
+
+    <div class="uploader-card">
+        <h2>Anonymous GB Video Uploader</h2>
+        <p style="color: #aaa; font-size: 14px;">Bina login kare badi se badi video direct Drive me bhejen</p>
+        
+        <input type="file" id="videoInput" accept="video/*"><br>
+        <button id="uploadBtn" onclick="startChunkedUpload()">Upload Video</button>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div id="progressText">0%</div>
+        </div>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        // 🛠️ APNI DETAILS YAHAN BHAREIN (Exposed to frontend!)
+        const CLIENT_ID = "YOUR_CLIENT_ID_HERE";
+        const CLIENT_SECRET = "YOUR_CLIENT_SECRET_HERE";
+        const REFRESH_TOKEN = "YOUR_REFRESH_TOKEN_HERE";
+        const FOLDER_ID = "YOUR_TARGET_FOLDER_ID_HERE"; 
+
+        // 1. Google se naya temporary Access Token maangna (bina user login ke)
+        async function getAccessToken() {
+            try {
+                const response = await fetch('https://oauth2.googleapis.com/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        client_id: CLIENT_ID,
+                        client_secret: CLIENT_SECRET,
+                        refresh_token: REFRESH_TOKEN,
+                        grant_type: 'refresh_token'
+                    })
+                });
+                const data = await response.json();
+                if (!data.access_token) throw new Error("Token nahi mila! Credentials check karo.");
+                return data.access_token;
+            } catch (err) {
+                throw new Error("Auth Failed: " + err.message);
+            }
+        }
+
+        // 2. Main Upload Logic (Chunk-by-Chunk)
+        async function startChunkedUpload() {
+            const fileInput = document.getElementById('videoInput');
+            const file = fileInput.files[0];
+            const statusDiv = document.getElementById('status');
+            const btn = document.getElementById('uploadBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+
+            if (!file) return alert("Pehle koi video file select karo!");
+
+            try {
+                btn.disabled = true;
+                statusDiv.innerText = "Authenticating with Google...";
+                
+                // Access token lekar aana
+                const accessToken = await getAccessToken();
+
+                statusDiv.innerText = "Creating upload session for big file...";
+                
+                // Google Drive ko bolna ki resumable session start kare
+                const metadata = { name: file.name, parents: [FOLDER_ID] };
+                const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json; charset=UTF-8',
+                        'X-Upload-Content-Type': file.type
+                    },
+                    body: JSON.stringify(metadata)
+                });
+
+                // Google se unique Session URL nikalna
+                const uploadUrl = initResponse.headers.get('location');
+                if (!uploadUrl) throw new Error("Google ne upload session URL nahi diya.");
+
+                progressContainer.style.display = 'block';
+                statusDiv.innerText = "Uploading chunks directly to Google Drive...";
+
+                // Badi file ko todne ka size (5MB ka ek chunk - Google ke hisab se 256KB ka multiple hona chahiye)
+                const chunkSize = 5 * 1024 * 1024; 
+                let start = 0;
+
+                // Loop jo file khatam hone tak chalega
+                while (start < file.size) {
+                    const end = Math.min(start + chunkSize, file.size);
+                    const chunk = file.slice(start, end);
+
+                    const uploadResponse = await fetch(uploadUrl, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Range': `bytes ${start}-${end - 1}/${file.size}`
+                        },
+                        body: chunk
+                    });
+
+                    if (uploadResponse.status === 308) {
+                        // 308 matlab yeh chunk chala gaya, agla bhejo
+                        start = end;
+                        const percent = ((start / file.size) * 100).toFixed(2);
+                        progressFill.style.width = percent + '%';
+                        progressText.innerText = percent + '%';
+                    } else if (uploadResponse.status === 200 || uploadResponse.status === 201) {
+                        // Upload khatam
+                        progressFill.style.width = '100%';
+                        progressText.innerText = '100%';
+                        statusDiv.innerText = "🎉 Video Successfully Uploaded!";
+                        break;
+                    } else {
+                        throw new Error(`Upload break ho gaya! Status: ${uploadResponse.status}`);
+                    }
+                }
+
+            } catch (error) {
+                statusDiv.style.color = "red";
+                statusDiv.innerText = "Error: " + error.message;
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
