@@ -3,28 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Serverless GB Folder Uploader</title>
+    <title>Serverless GB Folder & URL Uploader</title>
     <style>
         body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 50px; text-align: center; }
-        .uploader-card { background: #222; padding: 4px 30px 30px 30px; border-radius: 10px; display: inline-block; box-shadow: 0px 0px 15px rgba(0,255,100,0.1); border: 1px solid #333; }
-        input[type="file"] { margin: 20px 0; background: #333; padding: 10px; border-radius: 5px; color: #fff; }
-        button { background: #00ff66; color: #000; font-weight: bold; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .uploader-card { background: #222; padding: 4px 30px 30px 30px; border-radius: 10px; display: inline-block; box-shadow: 0px 0px 15px rgba(0,255,100,0.1); border: 1px solid #333; max-width: 500px; width: 100%; }
+        input[type="file"], input[type="text"] { margin: 15px 0; background: #333; padding: 10px; border-radius: 5px; color: #fff; border: 1px solid #444; }
+        input[type="text"] { width: 70%; box-sizing: border-box; }
+        button { background: #00ff66; color: #000; font-weight: bold; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }
         button:disabled { background: #555; cursor: not-allowed; }
         .progress-container { margin-top: 20px; display: none; }
-        .progress-bar { width: 300px; background: #444; height: 20px; border-radius: 10px; overflow: hidden; display: inline-block; }
+        .progress-bar { width: 100%; max-width: 300px; background: #444; height: 20px; border-radius: 10px; overflow: hidden; display: inline-block; }
         .progress-fill { width: 0%; height: 100%; background: #00ff66; transition: width 0.2s; }
-        #status { margin-top: 15px; font-weight: bold; color: #00ff66; }
+        #status { margin-top: 15px; font-weight: bold; color: #00ff66; word-break: break-all; }
         #fileCount { color: #aaa; font-size: 14px; margin-top: 5px; }
+        
+        /* New URL List Styling */
+        #urlListView { text-align: left; background: #1a1a1a; padding: 15px; border-radius: 5px; display: none; list-style-type: decimal; padding-left: 30px; max-height: 150px; overflow-y: auto; margin: 15px 0; border: 1px solid #333; }
+        .url-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: #ccc; font-size: 13px; }
+        .remove-btn { background: #ff3333; color: white; padding: 2px 8px; font-size: 11px; border-radius: 3px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div class="uploader-card">
-        <h2>Anonymous GB Folder Uploader</h2>
-        <p style="color: #aaa; font-size: 14px;">Bina login kare poora folder (badi videos samet) Drive me bhejen</p>
+        <h2>Anonymous Drive Uploader</h2>
+        <p style="color: #aaa; font-size: 14px;">Bina login kare poora folder ya direct URLs se files Drive me bhejen</p>
         
-        <input type="file" id="folderInput" webkitdirectory directory multiple><br>
-        <button id="uploadBtn" onclick="startFolderUpload()">Upload Folder</button>
+        <div style="border: 1px dashed #444; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; color: #00ff66;">Option 1: Upload Local Folder</h4>
+            <input type="file" id="folderInput" webkitdirectory directory multiple><br>
+            <button id="uploadBtn" onclick="startFolderUpload()">Upload Folder</button>
+        </div>
+
+        <div style="border: 1px dashed #444; padding: 15px; border-radius: 8px;">
+            <h4 style="margin: 0 0 10px 0; color: #00bfff;">Option 2: Upload via URLs</h4>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 5px;">
+                <input type="text" id="urlInput" placeholder="Yahan file ka direct URL dalein...">
+                <button onclick="addUrlToList()" style="background: #00bfff; padding: 10px 15px; font-size: 14px;">Add URL</button>
+            </div>
+            
+            <ol id="urlListView"></ol>
+            
+            <button id="uploadUrlsBtn" onclick="startUrlUpload()" style="background: #00bfff; display: none;">Upload All Added URLs</button>
+        </div>
 
         <div id="fileCount"></div>
 
@@ -40,10 +61,12 @@
 
     <script>
         // 🛠️ APNI DETAILS YAHAN BHAREIN
-        const CLIENT_ID = "393840795063-f9m92u8ld0nlt351v27agqnmltlvn55v.apps.googleusercontent.com";
-        const CLIENT_SECRET = "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";
-        const REFRESH_TOKEN = "1//04tQCIlE_vgZMCgYIARAAGAQSNwF-L9IrdWhELCwoFfeiPbEKjKCv-KPIjhoDXTjv8NbxDhVSHF4Jwu9W28I5k4dMYoJBseKEYDs";
-        const MAIN_FOLDER_ID = "1mGltCThiJn_Q1IPW4871GfRDxNSU32Fo"; // Jiske andar naya folder banega
+        const CLIENT_ID = "YOUR_CLIENT_ID_HERE";
+        const CLIENT_SECRET = "YOUR_CLIENT_SECRET_HERE";
+        const REFRESH_TOKEN = "YOUR_REFRESH_TOKEN_HERE";
+        const MAIN_FOLDER_ID = "YOUR_TARGET_FOLDER_ID_HERE"; 
+
+        let urlList = []; // Array to store multiple URLs
 
         // 1. Google se temporary Access Token lena
         async function getAccessToken() {
@@ -59,6 +82,7 @@
                     })
                 });
                 const data = await response.json();
+                if (!data.access_token) throw new Error("Token missing in response");
                 return data.access_token;
             } catch (err) {
                 throw new Error("Auth Failed: " + err.message);
@@ -81,10 +105,10 @@
                 body: JSON.stringify(metadata)
             });
             const data = await response.json();
-            return data.id; // Naye bane folder ki ID return karega
+            return data.id;
         }
 
-        // 3. Single File Chunk Upload Logic
+        // 3. Single File Chunk Upload Logic (Folder aur URL dono ke liye same use hoga)
         async function uploadSingleFile(file, accessToken, targetFolderId, statusDiv, progressFill, progressText) {
             const metadata = { name: file.name, parents: [targetFolderId] };
             const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
@@ -128,7 +152,7 @@
             }
         }
 
-        // 4. Main Folder Upload Manager
+        // 4. Main Folder Upload Manager (Purana Local System)
         async function startFolderUpload() {
             const fileInput = document.getElementById('folderInput');
             const files = fileInput.files;
@@ -144,23 +168,20 @@
             try {
                 btn.disabled = true;
                 progressContainer.style.display = 'block';
+                statusDiv.style.color = "#00ff66";
                 statusDiv.innerText = "Authenticating with Google...";
                 
                 const accessToken = await getAccessToken();
 
-                // User ne jo folder select kiya uski top-level directory ka naam nikalna
                 const localFolderName = files[0].webkitRelativePath.split('/')[0];
-                
                 statusDiv.innerText = `Drive me naya folder '${localFolderName}' bana rahe hain...`;
                 const destinationFolderId = await createNewFolderInDrive(accessToken, localFolderName);
 
-                // Ek-ek karke saari files ko naye folder me upload karna
                 for (let i = 0; i < files.length; i++) {
                     const currentFile = files[i];
                     fileCountDiv.innerText = `Uploading File ${i + 1} of ${files.length}`;
                     statusDiv.innerText = `Uploading: ${currentFile.name}`;
                     
-                    // Reset progress bar for current file
                     progressFill.style.width = '0%';
                     progressText.innerText = '0%';
 
@@ -168,8 +189,7 @@
                 }
 
                 fileCountDiv.innerText = "";
-                statusDiv.style.color = "#00ff66";
-                statusDiv.innerText = `🎉 Poora folder '${localFolderName}' aur uski saari files kamyabi se upload ho gayi hain!`;
+                statusDiv.innerText = `🎉 Poora folder '${localFolderName}' kamyabi se upload ho gaya!`;
 
             } catch (error) {
                 statusDiv.style.color = "red";
@@ -178,6 +198,118 @@
             } finally {
                 btn.disabled = false;
                 fileInput.value = "";
+            }
+        }
+
+        // 5. URL UI Management Functions
+        function addUrlToList() {
+            const urlInput = document.getElementById('urlInput');
+            const url = urlInput.value.trim();
+            if (!url) return alert("Pehle valid URL dalein!");
+            
+            urlList.push(url);
+            urlInput.value = "";
+            renderUrlList();
+        }
+
+        function removeUrl(index) {
+            urlList.splice(index, 1);
+            renderUrlList();
+        }
+
+        function renderUrlList() {
+            const listContainer = document.getElementById('urlListView');
+            const uploadBtn = document.getElementById('uploadUrlsBtn');
+            
+            if (urlList.length === 0) {
+                listContainer.style.display = 'none';
+                uploadBtn.style.display = 'none';
+                return;
+            }
+
+            listContainer.style.display = 'block';
+            uploadBtn.style.display = 'inline-block';
+            listContainer.innerHTML = "";
+
+            urlList.forEach((url, index) => {
+                const li = document.createElement('li');
+                li.className = "url-item";
+                li.innerHTML = `
+                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">${url}</span>
+                    <button class="remove-btn" onclick="removeUrl(${index})">Remove</button>
+                `;
+                listContainer.appendChild(li);
+            });
+        }
+
+        // 6. URL Upload Manager (Naya System)
+        async function startUrlUpload() {
+            if (urlList.length === 0) return alert("Koi URL added nahi hai!");
+
+            const statusDiv = document.getElementById('status');
+            const folderBtn = document.getElementById('uploadBtn');
+            const urlBtn = document.getElementById('uploadUrlsBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const fileCountDiv = document.getElementById('fileCount');
+
+            try {
+                folderBtn.disabled = true;
+                urlBtn.disabled = true;
+                progressContainer.style.display = 'block';
+                statusDiv.style.color = "#00bfff";
+                statusDiv.innerText = "Authenticating with Google...";
+                
+                const accessToken = await getAccessToken();
+                
+                // Ek common folder banega URL uploads ke liye jisme aaj ki date hogi
+                const folderName = `URL_Uploads_${new Date().toISOString().slice(0,10)}`;
+                statusDiv.innerText = `Drive me naya folder '${folderName}' bana rahe hain...`;
+                const destinationFolderId = await createNewFolderInDrive(accessToken, folderName);
+
+                for (let i = 0; i < urlList.length; i++) {
+                    const currentUrl = urlList[i];
+                    fileCountDiv.innerText = `Processing URL ${i + 1} of ${urlList.length}`;
+                    statusDiv.innerText = `Downloading file from URL into browser memory...`;
+
+                    // 1. URL se data fetch karna
+                    const response = await fetch(currentUrl);
+                    if (!response.ok) throw new Error(`URL fetch fail hua! Status: ${response.status}`);
+                    
+                    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+                    const blob = await response.blob();
+                    
+                    // 2. URL se filename nikalna
+                    let filename = currentUrl.split('/').pop().split('#')[0].split('?')[0];
+                    if (!filename || filename.trim() === '') {
+                        filename = `file_${i + 1}_${Date.now()}`;
+                    }
+
+                    // 3. Blob ko File Object me convert karna taaki purana upload logic use ho sake
+                    const currentFile = new File([blob], filename, { type: contentType });
+
+                    statusDiv.innerText = `Uploading to Drive: ${currentFile.name}`;
+                    progressFill.style.width = '0%';
+                    progressText.innerText = '0%';
+
+                    // Purane chunked upload function ko call karna
+                    await uploadSingleFile(currentFile, accessToken, destinationFolderId, statusDiv, progressFill, progressText);
+                }
+
+                fileCountDiv.innerText = "";
+                urlList = []; // Clear array
+                renderUrlList(); // Reset list UI
+                statusDiv.style.color = "#00ff66";
+                statusDiv.innerText = `🎉 Saare URLs ki files kamyabi se '${folderName}' folder me upload ho gayi hain!`;
+
+            } catch (error) {
+                statusDiv.style.color = "red";
+                statusDiv.innerText = "Error: " + error.message;
+                console.error(error);
+            } finally {
+                folderBtn.disabled = false;
+                urlBtn.disabled = false;
             }
         }
     </script>
