@@ -180,6 +180,9 @@
         #urlListView { background: #020203; padding: 12px 12px 12px 30px; border-radius: 8px; border: 1px solid var(--border-color); max-height: 120px; overflow-y: auto; margin-top: 10px; display: none; }
         .url-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 6px; color: #d4d4d8; }
         .remove-url-btn { background: transparent; border: none; color: var(--accent-red); font-size: 12px; cursor: pointer; }
+        
+        /* Terminal Log Stream Styles */
+        .error-log-box { background: #050507; border: 1px solid #27272a; border-radius: 8px; padding: 10px; max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 12px; color: #ef4444; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
@@ -221,22 +224,22 @@
                         </button>
                     </div>
 
-                    <!-- 🔥 NEW ADDED: YOUTUBE PLAYLIST STREAMER CARD -->
                     <div class="uploader-card">
                         <div class="panel-title text-danger">
                             <i class="fa-brands fa-youtube"></i> Option 4: YouTube Playlist Streamer
                         </div>
                         <input type="text" id="ytPlaylistInput" placeholder="Enter YouTube Playlist URL..." class="mb-2">
-                        <label for="ytQualitySelect" class="text-muted small mb-1" style="font-size: 11px;">Select Video Quality:</label>
+                        <label for="ytQualitySelect" class="text-muted small mb-1" style="font-size: 11px;">Select Target Video Quality:</label>
                         <select id="ytQualitySelect" class="mb-3">
                             <option value="1080">1080p (Full HD)</option>
-                            <option value="720" selected>720p (HD)</option>
-                            <option value="480">480p (SD)</option>
-                            <option value="360">360p (Low)</option>
+                            <option value="720" selected>720p (HD Standard)</option>
+                            <option value="480">480p (SD Medium)</option>
+                            <option value="360">360p (Data Saver)</option>
                         </select>
                         <button id="uploadYtBtn" class="custom-btn" style="background: var(--accent-red); color: #fff;" onclick="startYoutubePlaylistUpload()">
                             <i class="fa-solid fa-play"></i> Stream YouTube Playlist
                         </button>
+                        <div id="ytTerminalLog" class="error-log-box"></div>
                     </div>
 
                 </div>
@@ -350,7 +353,7 @@
             return data.id;
         }
 
-        // 4. Unified Resumable Upload Processor Core (Handles Local files, URLs and Dropbox Blobs equally)
+        // 4. Unified Resumable Upload Processor Core
         async function uploadSingleFile(file, accessToken, targetFolderId, statusDiv, progressFill, progressText) {
             const metadata = { name: file.name, parents: [targetFolderId] };
             const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
@@ -532,7 +535,7 @@
         }
 
         // =========================================================================
-        // PIPELINE BLOCK 3: NEW DROPBOX TO DRIVE INTER-CLOUD HIGH SPEED BRIDGE
+        // PIPELINE BLOCK 3: DROPBOX TO DRIVE INTER-CLOUD BRIDGE
         // =========================================================================
         document.getElementById('btn-dropbox-back').addEventListener('click', () => {
             if (dropboxPathHistory.length > 0) {
@@ -571,12 +574,10 @@
             items.forEach((item) => {
                 const isFolder = item[".tag"] === "folder";
                 const fileExt = isFolder ? "" : item.name.split('.').pop().toLowerCase();
-                const isVideo = ["mp4", "mkv", "avi", "mov", "webm", "mp3", "zip", "rar", "pdf", "jpg", "png"].includes(fileExt) || !isFolder;
 
                 const row = document.createElement('div');
                 row.className = "dbx-item-row";
 
-                // UI Left Info block
                 const infoBlock = document.createElement('div');
                 infoBlock.className = "dbx-item-info";
                 if(isFolder) {
@@ -589,7 +590,6 @@
                     infoBlock.innerHTML = `<i class="fa-solid fa-file-video text-danger"></i> <span class="dbx-item-name">${item.name}</span>`;
                 }
 
-                // UI Right Action block
                 const actionBlock = document.createElement('div');
                 if(!isFolder) {
                     const upBtn = document.createElement('button');
@@ -607,7 +607,6 @@
             });
         }
 
-        // Task runner to push single dropbox item into Drive Stream
         async function uploadSingleDropboxFileToDrive(item) {
             const statusDiv = document.getElementById('status');
             const progressContainer = document.getElementById('progressContainer');
@@ -620,47 +619,39 @@
                 statusDiv.style.color = "var(--accent-dropbox)";
                 statusDiv.innerText = `[DROPBOX_BRIDGE]: Instantiating link matrix token for: ${item.name}`;
 
-                // 1. Get Direct Secure Temporary Link from Dropbox Cluster
                 const linkRes = await dbx.filesGetTemporaryLink({ path: item.path_lower });
                 let targetUrl = linkRes.result.link;
                 
-                // User requirement correction rule synchronization (dl conversion logic check)
                 if (targetUrl.includes("www.dropbox.com")) {
                     targetUrl = targetUrl.replace("www.dropbox.com", "dl.dropboxusercontent.com");
                 }
                 let rawStreamingUrl = targetUrl.split('?')[0] + "?raw=1";
 
-                statusDiv.innerText = `[INTER-CLOUD]: Fetching live binary stream data blocks into browser environment buffer cache...`;
                 const streamResponse = await fetch(rawStreamingUrl);
                 if(!streamResponse.ok) throw new Error("Could not pipe live data from dropbox edge source server.");
                 
                 const blobData = await streamResponse.blob();
                 const readyFileNode = new File([blobData], item.name, { type: blobData.type });
 
-                statusDiv.innerText = `[SYS_AUTH]: Requesting transaction permissions from Google Cloud Engine...`;
                 const gToken = await getAccessToken();
-                
                 const folderName = `Dropbox_Pulled_Nodes`;
-                statusDiv.innerText = `[DRIVE_FS]: Syncing root default directory: '${folderName}'`;
                 const targetDriveFolderId = await createNewFolderInDrive(gToken, folderName);
 
                 fileCountDiv.innerText = `PIPELINE OPERATION: Inter-Cloud Bridge System Transfer active`;
-                statusDiv.innerText = `[UPLOAD_PIPELINE]: Chunk streaming binary stream nodes directly to Drive server...`;
                 progressFill.style.width = '0%'; progressText.innerText = '0%';
 
                 await uploadSingleFile(readyFileNode, gToken, targetDriveFolderId, statusDiv, progressFill, progressText);
 
                 fileCountDiv.innerText = "INTER-CLOUD STREAM SUCCESSFUL";
                 statusDiv.style.color = "var(--accent-green)";
-                statusDiv.innerText = `🎉 File '${item.name}' completely transmitted from Dropbox node right into Google Drive folder: '${folderName}'!`;
+                statusDiv.innerText = `🎉 File '${item.name}' completely transmitted to Google Drive folder!`;
 
             } catch (error) {
                 statusDiv.style.color = "var(--accent-red)";
-                statusDiv.innerText = "BRIDGE ROUTING CRITICAL INTERRUPT ERROR: " + error.message;
+                statusDiv.innerText = "BRIDGE ROUTING ERROR: " + error.message;
             }
         }
 
-        // Upload entire directory content layer recursive loop
         async function uploadEntireCurrentDropboxFolder() {
             const statusDiv = document.getElementById('status');
             const progressContainer = document.getElementById('progressContainer');
@@ -668,16 +659,15 @@
             const progressText = document.getElementById('progressText');
             const fileCountDiv = document.getElementById('fileCount');
 
-            // Extract only applicable video nodes inside current structure cache
             const directFilesToUpload = dropboxCachedEntries.filter(e => e[".tag"] === "file");
-            if(directFilesToUpload.length === 0) return alert("Current path configuration window contains no standalone file nodes to extract!");
+            if(directFilesToUpload.length === 0) return alert("Current path configuration window contains no standalone file nodes!");
 
-            if(!confirm(`Kya aap is Dropbox directory ke saare (${directFilesToUpload.length}) files ko Google Drive mein direct parallelize backup dena chahte hain?`)) return;
+            if(!confirm(`Kya aap is Dropbox directory ke saare (${directFilesToUpload.length}) files ko Google Drive mein backup dena chahte hain?`)) return;
 
             try {
                 progressContainer.style.display = 'block';
                 statusDiv.style.color = "var(--accent-dropbox)";
-                statusDiv.innerText = "[BRIDGE_CLUSTER]: Generating authorization tokens across dual cloud structures...";
+                statusDiv.innerText = "[BRIDGE_CLUSTER]: Generating authorization tokens...";
                 
                 const gToken = await getAccessToken();
                 const parentFolderName = dropboxCurrentPath === "" ? "Dropbox_Root_Dump" : dropboxCurrentPath.split('/').pop();
@@ -685,38 +675,42 @@
 
                 for(let i=0; i<directFilesToUpload.length; i++) {
                     const currentItem = directFilesToUpload[i];
-                    fileCountDiv.innerText = `MASS CLUSTER OPERATION PIPELINE QUEUE: [File ${i+1} / ${directFilesToUpload.length}]`;
-                    statusDiv.innerText = `[1/2] requesting remote download keys for: ${currentItem.name}`;
+                    fileCountDiv.innerText = `MASS REPLICATION: [File ${i+1} / ${directFilesToUpload.length}]`;
 
                     const linkRes = await dbx.filesGetTemporaryLink({ path: currentItem.path_lower });
                     let cleanUrl = linkRes.result.link.includes("www.dropbox.com") ? linkRes.result.link.replace("www.dropbox.com", "dl.dropboxusercontent.com") : linkRes.result.link;
                     let fileRawLink = cleanUrl.split('?')[0] + "?raw=1";
 
-                    statusDiv.innerText = `[2/2] Buffering file binary blocks across networks...`;
                     const resStream = await fetch(fileRawLink);
                     const fileBlob = await resStream.blob();
                     const wrappedFileObject = new File([fileBlob], currentItem.name, { type: fileBlob.type });
 
-                    statusDiv.innerText = `Chunk uploading file directly to Drive servers: ${currentItem.name}`;
                     progressFill.style.width = '0%'; progressText.innerText = '0%';
-
                     await uploadSingleFile(wrappedFileObject, gToken, targetDriveFolderId, statusDiv, progressFill, progressText);
                 }
 
-                fileCountDiv.innerText = "MASS INTER-CLOUD REPLICATION PROCESS TERMINATED COMPLETE";
+                fileCountDiv.innerText = "MASS REPLICATION COMPLETE";
                 statusDiv.style.color = "var(--accent-green)";
                 statusDiv.innerText = `🎉 Pure folder '${parentFolderName}' ke saare files Google Drive backup system cluster me upload ho gaye!`;
 
             } catch (error) {
                 statusDiv.style.color = "var(--accent-red)";
-                statusDiv.innerText = "MASS PIPELINE ERROR CRITICAL TRACE: " + error.message;
+                statusDiv.innerText = "MASS PIPELINE ERROR: " + error.message;
             }
         }
 
 
         // =========================================================================
-        // 🔥 PIPELINE BLOCK 4: NEW AUTOMATED YOUTUBE PLAYLIST STREAMER CORE
+        // 🔥 PIPELINE BLOCK 4: AUTOMATED YOUTUBE PLAYLIST STREAMER (CORS BYPASS & ERROR LOGGER FIXED)
         // =========================================================================
+        function logYtError(msg) {
+            const logBox = document.getElementById('ytTerminalLog');
+            logBox.style.display = 'block';
+            const timestamp = new Date().toLocaleTimeString();
+            logBox.innerHTML += `<div style="margin-bottom: 4px;">[${timestamp}] <span style="color:#ef4444;">[ERR]</span> ${msg}</div>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
         async function startYoutubePlaylistUpload() {
             const playlistUrl = document.getElementById('ytPlaylistInput').value.trim();
             const quality = document.getElementById('ytQualitySelect').value;
@@ -726,96 +720,113 @@
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
             const fileCountDiv = document.getElementById('fileCount');
+            const logBox = document.getElementById('ytTerminalLog');
 
             if (!playlistUrl) return alert("Pehle YouTube Playlist URL daaliye!");
 
-            // Extract Playlist ID from URL
             let playlistId = "";
             if (playlistUrl.includes("list=")) {
                 playlistId = playlistUrl.split("list=")[1].split("&")[0];
             } else {
-                return alert("Invalid Playlist URL! Isme 'list=' parameter hona chahiye.");
+                return alert("Invalid Playlist URL! Link me 'list=' parameter hona chahiye.");
             }
+
+            // Reset Terminal Terminal Log Logs
+            logBox.innerHTML = "";
+            logBox.style.display = 'none';
 
             try {
                 btn.disabled = true;
                 progressContainer.style.display = 'block';
-                statusDiv.style.color = "var(--accent-red)";
-                statusDiv.innerText = "[YT_INIT]: Fetching playlist metadata via Invidious Node Engine...";
+                statusDiv.style.color = "var(--accent-blue)";
+                statusDiv.innerText = "[YT_INIT]: Connecting via CORS Proxy Engine to read target playlist data map...";
 
-                // Step 1: Playlist videos fetch karna using a public invidious instance
-                const invidiousRes = await fetch(`https://vid.puffyan.us/api/v1/playlists/${playlistId}`);
-                if (!invidiousRes.ok) throw new Error("Invidious API failed to read playlist cluster.");
-                const playlistData = await invidiousRes.json();
+                // Secure AllOrigins CORS Engine fallback pipeline setup
+                const targetInvidiousUrl = `https://vid.puffyan.us/api/v1/playlists/${playlistId}`;
+                const secureProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetInvidiousUrl)}`;
                 
+                const invidiousRes = await fetch(secureProxyUrl);
+                if (!invidiousRes.ok) throw new Error(`CORS Proxy failed to connect to Invidious Node. Status code: ${invidiousRes.status}`);
+                
+                const playlistData = await invidiousRes.json();
                 const videoList = playlistData.videos || [];
-                if (videoList.length === 0) throw new Error("Is playlist me koi videos nahi mile ya ye private hai.");
+                
+                if (videoList.length === 0) {
+                    throw new Error("Is playlist configuration window me koi videos nahi mile! Check karein ki playlist 'Public' ya 'Unlisted' hai ya nahi.");
+                }
 
-                statusDiv.innerText = `[SYS_AUTH]: Playlist parsed! Total ${videoList.length} videos found. Authenticating Google Drive...`;
+                statusDiv.innerText = `[SYS_AUTH]: Playlist Parsed! Total ${videoList.length} videos found. Generating Google Cloud secure connection session...`;
                 const accessToken = await getAccessToken();
 
-                // Google Drive me Playlist Name ke naam se folder banana
-                const folderName = `YT_Playlist_${playlistData.title || playlistId}`;
-                const destinationFolderId = await createNewFolderInDrive(accessToken, folderName);
+                const sanitizedFolderName = `YT_Playlist_${(playlistData.title || playlistId).replace(/[/\\?%*:|"<>]/g, '-')}`;
+                statusDiv.innerText = `[DRIVE_FS]: Setting up central repository index folder: '${sanitizedFolderName}'`;
+                const destinationFolderId = await createNewFolderInDrive(accessToken, sanitizedFolderName);
 
-                // Step 2: Ek-ek karke loop chala kar download & upload karna
+                // Main Sequential Processing Array Core Loop
                 for (let i = 0; i < videoList.length; i++) {
                     const video = videoList[i];
-                    fileCountDiv.innerText = `YOUTUBE PIPELINE: [Video ${i + 1} / ${videoList.length}]`;
+                    fileCountDiv.innerText = `YOUTUBE PIPELINE ENGINE: [Video ${i + 1} / ${videoList.length}]`;
+                    statusDiv.style.color = "var(--accent-blue)";
                     statusDiv.innerText = `[1/3 Extractor]: Requesting secure streaming download link for: ${video.title}`;
 
                     try {
-                        // Cobalt API ka use karke bypass stream generate karna selected quality ke saath
+                        // Extracting direct stream nodes utilizing Cobalt Backend Cluster
                         const cobaltRes = await fetch('https://api.cobalt.tools/api/json', {
                             method: 'POST',
                             headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 url: `https://www.youtube.com/watch?v=${video.videoId}`,
-                                videoQuality: quality, // e.g., '1080', '720', '480', '360'
+                                videoQuality: quality, 
                                 downloadMode: 'auto'
                             })
                         });
 
+                        if (!cobaltRes.ok) {
+                            throw new Error(`Cobalt Server down or rate limited. Status code: ${cobaltRes.status}`);
+                        }
+
                         const cobaltData = await cobaltRes.json();
                         if (cobaltData.status !== 'stream' || !cobaltData.url) {
-                            console.warn(`Skipping Video Index ${i+1}: Extraction Failed.`, cobaltData.text);
-                            statusDiv.innerText = `⚠️ Skipping (Cobalt Error): ${video.title}`;
-                            continue; // Agar ek video fail ho jaye to agle par badhein
+                            throw new Error(`Extraction Failed: ${cobaltData.text || 'Unknown Error Response context.'}`);
                         }
 
                         statusDiv.innerText = `[2/3 Buffer]: Downloading video data blocks into live proxy stream memory...`;
                         const videoStreamRes = await fetch(cobaltData.url);
-                        if (!videoStreamRes.ok) throw new Error("Direct video stream extraction failed.");
+                        if (!videoStreamRes.ok) throw new Error(`Failed to stream media binary array chunk blocks from Cobalt edge source node.`);
                         
                         let videoBlob = await videoStreamRes.blob();
-                        let cleanTitle = video.title.replace(/[/\\?%*:|"<>]/g, '-'); // Safe filename symbols
+                        let cleanTitle = video.title.replace(/[/\\?%*:|"<>]/g, '-'); 
                         let currentVideoFile = new File([videoBlob], `${cleanTitle}.mp4`, { type: 'video/mp4' });
 
-                        statusDiv.innerText = `[3/3 Google Drive]: Injecting chunk matrix blocks to Folder Node...`;
+                        statusDiv.style.color = "var(--accent-green)";
+                        statusDiv.innerText = `[3/3 Google Drive]: Injecting chunk matrix blocks to Drive: ${cleanTitle}.mp4`;
                         progressFill.style.width = '0%';
                         progressText.innerText = '0%';
 
-                        // Existing Core Resumable Uploader Function use ho rahi hai
+                        // Streaming file content directly to target drive directory path node
                         await uploadSingleFile(currentVideoFile, accessToken, destinationFolderId, statusDiv, progressFill, progressText);
 
-                        // 🔥 Memory leak se bachne ke liye data null karke memory clear karna (Taaki 1000 videos me browser crash na ho)
+                        // Garbage collector memory optimization trigger
                         videoBlob = null;
                         currentVideoFile = null;
 
                     } catch (videoError) {
-                        console.error(`Error processing video index ${i+1}: `, videoError);
-                        statusDiv.innerText = `❌ Error on video ${i+1}, moving to next...`;
-                        await new Promise(r => setTimeout(r, 2000)); // 2 second pause error handle karne ke liye
+                        console.error(`Error on Video Index [${i+1}]: `, videoError);
+                        logYtError(`Video ${i+1} ("${video.title || video.videoId}") failed: ${videoError.message}`);
+                        statusDiv.style.color = "var(--accent-red)";
+                        statusDiv.innerText = `⚠️ Skipping Video ${i+1} due to extraction error. Continuing deployment pipeline...`;
+                        await new Promise(r => setTimeout(r, 3000)); // Cool-down mechanism pause
                     }
                 }
 
                 fileCountDiv.innerText = "PLAYLIST OPERATION TERMINATED COMPLETE";
                 statusDiv.style.color = "var(--accent-green)";
-                statusDiv.innerText = `🎉 Mubarak ho! Saare possible videos successfully aapke Google Drive folder '${folderName}' me chale gaye hain.`;
+                statusDiv.innerText = `🎉 Successfully processed and uploaded entire playlist configuration nodes to: '${sanitizedFolderName}'`;
 
             } catch (error) {
                 statusDiv.style.color = "var(--accent-red)";
-                statusDiv.innerText = "PLAYLIST STREAM EXTRACTION FAULT: " + error.message;
+                statusDiv.innerText = "PLAYLIST CRITICAL ABORT FAULT: " + error.message;
+                logYtError(`CRITICAL MAIN PIPELINE FAULT: ${error.message}`);
             } finally {
                 btn.disabled = false;
             }
@@ -830,10 +841,9 @@
                 document.getElementById('dbx-loader').style.color = "var(--accent-red)";
                 return;
             }
-            // Dropbox SDK initialization
             dbx = new Dropbox.Dropbox({ accessToken: freshDropboxToken });
-            fetchDropboxFiles(""); // Initializing tree configuration mapping
+            fetchDropboxFiles(""); 
         });
     </script>
 </body>
-    </html>
+</html>
