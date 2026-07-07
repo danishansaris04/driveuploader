@@ -67,7 +67,7 @@
             gap: 10px;
         }
 
-        input[type="file"], input[type="text"] {
+        input[type="file"], input[type="text"], select {
             background: #121214;
             border: 1px solid var(--border-color);
             border-radius: 8px;
@@ -77,7 +77,7 @@
             font-size: 14px;
             transition: 0.2s ease;
         }
-        input[type="text"]:focus {
+        input[type="text"]:focus, select:focus {
             outline: none;
             border-color: var(--accent-blue);
             box-shadow: 0 0 10px rgba(0, 191, 255, 0.2);
@@ -218,6 +218,24 @@
                         <ol id="urlListView"></ol>
                         <button id="uploadUrlsBtn" class="custom-btn mt-2" style="background: var(--accent-blue); color: #000; display: none;" onclick="startUrlUpload()">
                             <i class="fa-solid fa-globe"></i> Stream All Added Links
+                        </button>
+                    </div>
+
+                    <!-- 🔥 NEW ADDED: YOUTUBE PLAYLIST STREAMER CARD -->
+                    <div class="uploader-card">
+                        <div class="panel-title text-danger">
+                            <i class="fa-brands fa-youtube"></i> Option 4: YouTube Playlist Streamer
+                        </div>
+                        <input type="text" id="ytPlaylistInput" placeholder="Enter YouTube Playlist URL..." class="mb-2">
+                        <label for="ytQualitySelect" class="text-muted small mb-1" style="font-size: 11px;">Select Video Quality:</label>
+                        <select id="ytQualitySelect" class="mb-3">
+                            <option value="1080">1080p (Full HD)</option>
+                            <option value="720" selected>720p (HD)</option>
+                            <option value="480">480p (SD)</option>
+                            <option value="360">360p (Low)</option>
+                        </select>
+                        <button id="uploadYtBtn" class="custom-btn" style="background: var(--accent-red); color: #fff;" onclick="startYoutubePlaylistUpload()">
+                            <i class="fa-solid fa-play"></i> Stream YouTube Playlist
                         </button>
                     </div>
 
@@ -695,6 +713,115 @@
             }
         }
 
+
+        // =========================================================================
+        // 🔥 PIPELINE BLOCK 4: NEW AUTOMATED YOUTUBE PLAYLIST STREAMER CORE
+        // =========================================================================
+        async function startYoutubePlaylistUpload() {
+            const playlistUrl = document.getElementById('ytPlaylistInput').value.trim();
+            const quality = document.getElementById('ytQualitySelect').value;
+            const statusDiv = document.getElementById('status');
+            const btn = document.getElementById('uploadYtBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const fileCountDiv = document.getElementById('fileCount');
+
+            if (!playlistUrl) return alert("Pehle YouTube Playlist URL daaliye!");
+
+            // Extract Playlist ID from URL
+            let playlistId = "";
+            if (playlistUrl.includes("list=")) {
+                playlistId = playlistUrl.split("list=")[1].split("&")[0];
+            } else {
+                return alert("Invalid Playlist URL! Isme 'list=' parameter hona chahiye.");
+            }
+
+            try {
+                btn.disabled = true;
+                progressContainer.style.display = 'block';
+                statusDiv.style.color = "var(--accent-red)";
+                statusDiv.innerText = "[YT_INIT]: Fetching playlist metadata via Invidious Node Engine...";
+
+                // Step 1: Playlist videos fetch karna using a public invidious instance
+                const invidiousRes = await fetch(`https://vid.puffyan.us/api/v1/playlists/${playlistId}`);
+                if (!invidiousRes.ok) throw new Error("Invidious API failed to read playlist cluster.");
+                const playlistData = await invidiousRes.json();
+                
+                const videoList = playlistData.videos || [];
+                if (videoList.length === 0) throw new Error("Is playlist me koi videos nahi mile ya ye private hai.");
+
+                statusDiv.innerText = `[SYS_AUTH]: Playlist parsed! Total ${videoList.length} videos found. Authenticating Google Drive...`;
+                const accessToken = await getAccessToken();
+
+                // Google Drive me Playlist Name ke naam se folder banana
+                const folderName = `YT_Playlist_${playlistData.title || playlistId}`;
+                const destinationFolderId = await createNewFolderInDrive(accessToken, folderName);
+
+                // Step 2: Ek-ek karke loop chala kar download & upload karna
+                for (let i = 0; i < videoList.length; i++) {
+                    const video = videoList[i];
+                    fileCountDiv.innerText = `YOUTUBE PIPELINE: [Video ${i + 1} / ${videoList.length}]`;
+                    statusDiv.innerText = `[1/3 Extractor]: Requesting secure streaming download link for: ${video.title}`;
+
+                    try {
+                        // Cobalt API ka use karke bypass stream generate karna selected quality ke saath
+                        const cobaltRes = await fetch('https://api.cobalt.tools/api/json', {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                url: `https://www.youtube.com/watch?v=${video.videoId}`,
+                                videoQuality: quality, // e.g., '1080', '720', '480', '360'
+                                downloadMode: 'auto'
+                            })
+                        });
+
+                        const cobaltData = await cobaltRes.json();
+                        if (cobaltData.status !== 'stream' || !cobaltData.url) {
+                            console.warn(`Skipping Video Index ${i+1}: Extraction Failed.`, cobaltData.text);
+                            statusDiv.innerText = `⚠️ Skipping (Cobalt Error): ${video.title}`;
+                            continue; // Agar ek video fail ho jaye to agle par badhein
+                        }
+
+                        statusDiv.innerText = `[2/3 Buffer]: Downloading video data blocks into live proxy stream memory...`;
+                        const videoStreamRes = await fetch(cobaltData.url);
+                        if (!videoStreamRes.ok) throw new Error("Direct video stream extraction failed.");
+                        
+                        let videoBlob = await videoStreamRes.blob();
+                        let cleanTitle = video.title.replace(/[/\\?%*:|"<>]/g, '-'); // Safe filename symbols
+                        let currentVideoFile = new File([videoBlob], `${cleanTitle}.mp4`, { type: 'video/mp4' });
+
+                        statusDiv.innerText = `[3/3 Google Drive]: Injecting chunk matrix blocks to Folder Node...`;
+                        progressFill.style.width = '0%';
+                        progressText.innerText = '0%';
+
+                        // Existing Core Resumable Uploader Function use ho rahi hai
+                        await uploadSingleFile(currentVideoFile, accessToken, destinationFolderId, statusDiv, progressFill, progressText);
+
+                        // 🔥 Memory leak se bachne ke liye data null karke memory clear karna (Taaki 1000 videos me browser crash na ho)
+                        videoBlob = null;
+                        currentVideoFile = null;
+
+                    } catch (videoError) {
+                        console.error(`Error processing video index ${i+1}: `, videoError);
+                        statusDiv.innerText = `❌ Error on video ${i+1}, moving to next...`;
+                        await new Promise(r => setTimeout(r, 2000)); // 2 second pause error handle karne ke liye
+                    }
+                }
+
+                fileCountDiv.innerText = "PLAYLIST OPERATION TERMINATED COMPLETE";
+                statusDiv.style.color = "var(--accent-green)";
+                statusDiv.innerText = `🎉 Mubarak ho! Saare possible videos successfully aapke Google Drive folder '${folderName}' me chale gaye hain.`;
+
+            } catch (error) {
+                statusDiv.style.color = "var(--accent-red)";
+                statusDiv.innerText = "PLAYLIST STREAM EXTRACTION FAULT: " + error.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+
         // Lifecycle Ignition Entrypoint
         document.addEventListener("DOMContentLoaded", async () => {
             const freshDropboxToken = await fetchFreshDropboxToken();
@@ -709,4 +836,4 @@
         });
     </script>
 </body>
-</html>
+    </html>
