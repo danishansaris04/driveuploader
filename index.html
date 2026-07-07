@@ -3,72 +3,286 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Serverless GB Folder & URL Uploader</title>
+    <title>D-FLIX & DRIVE | Premium Ultimate Cloud Suite</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropbox.js/10.30.0/Dropbox-sdk.min.js"></script>
+
     <style>
-        body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 50px; text-align: center; }
-        .uploader-card { background: #222; padding: 4px 30px 30px 30px; border-radius: 10px; display: inline-block; box-shadow: 0px 0px 15px rgba(0,255,100,0.1); border: 1px solid #333; max-width: 500px; width: 100%; }
-        input[type="file"], input[type="text"] { margin: 15px 0; background: #333; padding: 10px; border-radius: 5px; color: #fff; border: 1px solid #444; }
-        input[type="text"] { width: 70%; box-sizing: border-box; }
-        button { background: #00ff66; color: #000; font-weight: bold; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }
-        button:disabled { background: #555; cursor: not-allowed; }
-        .progress-container { margin-top: 20px; display: none; }
-        .progress-bar { width: 100%; max-width: 300px; background: #444; height: 20px; border-radius: 10px; overflow: hidden; display: inline-block; }
-        .progress-fill { width: 0%; height: 100%; background: #00ff66; transition: width 0.2s; }
-        #status { margin-top: 15px; font-weight: bold; color: #00ff66; word-break: break-all; }
-        #fileCount { color: #aaa; font-size: 14px; margin-top: 5px; }
-        
-        /* New URL List Styling */
-        #urlListView { text-align: left; background: #1a1a1a; padding: 15px; border-radius: 5px; display: none; list-style-type: decimal; padding-left: 30px; max-height: 150px; overflow-y: auto; margin: 15px 0; border: 1px solid #333; }
-        .url-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: #ccc; font-size: 13px; }
-        .remove-btn { background: #ff3333; color: white; padding: 2px 8px; font-size: 11px; border-radius: 3px; cursor: pointer; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+
+        /* Pure OLED Hacker Dark Mode Setup */
+        :root {
+            --bg-dark: #000000;
+            --card-bg: #09090b;
+            --border-color: #1f1f23;
+            --text-main: #f4f4f5;
+            --accent-green: #00ff66;
+            --accent-blue: #00bfff;
+            --accent-dropbox: #3a86ff;
+            --accent-red: #ef4444;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
+            padding: 30px 15px;
+            user-select: none;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: #1f1f23; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-red); }
+
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .dashboard-header h1 {
+            font-weight: 800;
+            letter-spacing: -1.5px;
+            color: var(--accent-red);
+            margin-bottom: 5px;
+        }
+
+        /* Module Panels Blueprint */
+        .uploader-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0px 10px 30px rgba(0,0,0,0.5);
+            height: 100%;
+        }
+
+        .panel-title {
+            font-weight: 700;
+            font-size: 1.15rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="file"], input[type="text"] {
+            background: #121214;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: #fff;
+            padding: 12px;
+            width: 100%;
+            font-size: 14px;
+            transition: 0.2s ease;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 10px rgba(0, 191, 255, 0.2);
+        }
+
+        .custom-btn {
+            font-weight: 600;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s ease;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .custom-btn:disabled { background: #222 !important; color: #555 !important; cursor: not-allowed; border: 1px solid #333; }
+
+        /* Status & Global Controls Layout */
+        .status-wrapper {
+            background: #050507;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+        #status { font-weight: 600; color: var(--accent-green); word-break: break-all; font-size: 14px; }
+        #fileCount { color: #a1a1aa; font-size: 13px; margin-bottom: 8px; font-family: monospace; }
+
+        .progress-container { margin-top: 15px; display: none; }
+        .progress-bar-wrapper { width: 100%; background: #1f1f23; height: 8px; border-radius: 999px; overflow: hidden; }
+        .progress-fill { width: 0%; height: 100%; background: var(--accent-green); transition: width 0.1s linear; }
+        .progress-text { font-size: 12px; color: #a1a1aa; text-align: right; margin-top: 4px; font-family: monospace; }
+
+        /* Dropbox File Explorer System styling */
+        .dbx-browser-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: #020203;
+            padding: 5px;
+        }
+        .dbx-item-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: 0.2s;
+            border: 1px solid transparent;
+        }
+        .dbx-item-row:hover {
+            background: #0c0c0e;
+            border-color: #27272a;
+        }
+        .dbx-item-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            max-width: 70%;
+            cursor: pointer;
+        }
+        .dbx-item-name {
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cloud-action-btn {
+            background: rgba(0, 255, 102, 0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(0, 255, 102, 0.2);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        .cloud-action-btn:hover {
+            background: var(--accent-green);
+            color: #000;
+        }
+
+        .breadcrumb-badge {
+            background: #0c0c0e;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: monospace;
+            color: #a1a1aa;
+        }
+
+        /* URL List Queue elements */
+        #urlListView { background: #020203; padding: 12px 12px 12px 30px; border-radius: 8px; border: 1px solid var(--border-color); max-height: 120px; overflow-y: auto; margin-top: 10px; display: none; }
+        .url-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 6px; color: #d4d4d8; }
+        .remove-url-btn { background: transparent; border: none; color: var(--accent-red); font-size: 12px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="uploader-card">
-        <h2>Anonymous Drive Uploader</h2>
-        <p style="color: #aaa; font-size: 14px;">Bina login kare poora folder ya direct URLs se files Drive me bhejen</p>
+    <div class="container-fluid max-width-xl">
         
-        <div style="border: 1px dashed #444; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-            <h4 style="margin: 0 0 10px 0; color: #00ff66;">Option 1: Upload Local Folder</h4>
-            <input type="file" id="folderInput" webkitdirectory directory multiple><br>
-            <button id="uploadBtn" onclick="startFolderUpload()">Upload Folder</button>
+        <div class="dashboard-header">
+            <h1>D-FLIX CLOUD INTEGRATOR</h1>
+            <p class="text-muted small">Bina login kare local file systems, links, aur Dropbox nodes ko seedhe Google Drive mein stream karein</p>
         </div>
 
-        <div style="border: 1px dashed #444; padding: 15px; border-radius: 8px;">
-            <h4 style="margin: 0 0 10px 0; color: #00bfff;">Option 2: Upload via URLs</h4>
-            <div style="display: flex; justify-content: center; align-items: center; gap: 5px;">
-                <input type="text" id="urlInput" placeholder="Yahan file ka direct URL dalein...">
-                <button onclick="addUrlToList()" style="background: #00bfff; padding: 10px 15px; font-size: 14px;">Add URL</button>
+        <div class="row g-4">
+            <div class="col-xl-4 col-lg-5">
+                <div class="d-flex flex-column gap-4 h-100">
+                    
+                    <div class="uploader-card">
+                        <div class="panel-title text-success">
+                            <i class="fa-solid fa-folder-arrow-up"></i> Option 1: Local Folder Node
+                        </div>
+                        <input type="file" id="folderInput" webkitdirectory directory multiple class="mb-3">
+                        <button id="uploadBtn" class="custom-btn" style="background: var(--accent-green); color: #000;" onclick="startFolderUpload()">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Upload Local Folder
+                        </button>
+                    </div>
+
+                    <div class="uploader-card">
+                        <div class="panel-title text-info">
+                            <i class="fa-solid fa-link"></i> Option 2: Direct URL Streaming
+                        </div>
+                        <div class="d-flex gap-2 mb-2">
+                            <input type="text" id="urlInput" placeholder="Enter target raw download matrix URL...">
+                            <button class="custom-btn w-auto" style="background: var(--accent-blue); color: #000; padding: 0 15px;" onclick="addUrlToList()">
+                                <i class="fa-solid fa-plus"></i> Add
+                            </button>
+                        </div>
+                        <ol id="urlListView"></ol>
+                        <button id="uploadUrlsBtn" class="custom-btn mt-2" style="background: var(--accent-blue); color: #000; display: none;" onclick="startUrlUpload()">
+                            <i class="fa-solid fa-globe"></i> Stream All Added Links
+                        </button>
+                    </div>
+
+                </div>
             </div>
-            
-            <ol id="urlListView"></ol>
-            
-            <button id="uploadUrlsBtn" onclick="startUrlUpload()" style="background: #00bfff; display: none;">Upload All Added URLs</button>
-        </div>
 
-        <div id="fileCount"></div>
+            <div class="col-xl-8 col-lg-7">
+                <div class="uploader-card">
+                    <div class="panel-title" style="color: var(--accent-dropbox);">
+                        <i class="fa-brands fa-dropbox"></i> Option 3: Dropbox Cloud Storage Node Browser
+                    </div>
+                    
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <button id="btn-dropbox-back" class="custom-btn w-auto py-1 px-3" style="background: #1f1f23; color: #fff; font-size: 12px; border: 1px solid #333; display: none;">
+                                <i class="fa-solid fa-arrow-left"></i> Up
+                            </button>
+                            <span class="breadcrumb-badge" id="dropbox-path-view">/root</span>
+                        </div>
+                        <button id="btn-upload-dbx-folder" class="custom-btn w-auto py-1 px-3" style="background: var(--accent-dropbox); color: #fff; font-size: 12px;" onclick="uploadEntireCurrentDropboxFolder()">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Upload Current Folder Entirely
+                        </button>
+                    </div>
 
-        <div class="progress-container" id="progressContainer">
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
+                    <div class="dbx-browser-container" id="dropboxFileGrid">
+                        <div class="text-center py-5 opacity-50 text-xs font-monospace" id="dbx-loader">
+                            <i class="fa-solid fa-circle-notch fa-spin me-2 text-primary"></i> Mapping Dropbox Cluster Storage Tree...
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div id="progressText">0%</div>
         </div>
-        
-        <div id="status"></div>
+
+        <div class="status-wrapper">
+            <div id="fileCount">System Idle - Waiting for Cloud Request Pipeline...</div>
+            <div id="status">Ready for commands</div>
+            
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar-wrapper">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">0%</div>
+            </div>
+        </div>
+
     </div>
 
     <script>
-        // 🛠️ APNI DETAILS YAHAN BHAREIN
+        // 🛠️ APNI CREDENTIAL DETAILS YAHAN SET RAKHEIN
         const CLIENT_ID = "393840795063-f9m92u8ld0nlt351v27agqnmltlvn55v.apps.googleusercontent.com";
         const CLIENT_SECRET = "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";
         const REFRESH_TOKEN = "1//04tQCIlE_vgZMCgYIARAAGAQSNwF-L9IrdWhELCwoFfeiPbEKjKCv-KPIjhoDXTjv8NbxDhVSHF4Jwu9W28I5k4dMYoJBseKEYDs";
         const MAIN_FOLDER_ID = "1mGltCThiJn_Q1IPW4871GfRDxNSU32Fo"; 
 
-        let urlList = []; // Array to store multiple URLs
+        const DROPBOX_APP_KEY = 'ji9qtf5nctzae7n';
+        const DROPBOX_APP_SECRET = '87kj0rpyzwmb06z';
+        const DROPBOX_REFRESH_TOKEN = 'PIEBZ5q2Q8IAAAAAAAAAAVVaGtI8BELQB3NTXTbSwNYjV8oWvieLLRedN72Y0HJl';
 
-        // 1. Google se temporary Access Token lena
+        let dbx;
+        let dropboxCurrentPath = "";
+        let dropboxPathHistory = [];
+        let dropboxCachedEntries = [];
+        let urlList = [];
+
+        // 1. Google Account Token Refresher
         async function getAccessToken() {
             try {
                 const response = await fetch('https://oauth2.googleapis.com/token', {
@@ -82,14 +296,27 @@
                     })
                 });
                 const data = await response.json();
-                if (!data.access_token) throw new Error("Token missing in response");
+                if (!data.access_token) throw new Error("Google Token allocation failed.");
                 return data.access_token;
             } catch (err) {
-                throw new Error("Auth Failed: " + err.message);
+                throw new Error("Google Auth Error: " + err.message);
             }
         }
 
-        // 2. Drive mein naya Folder banane ka function
+        // 2. Dropbox Cloud Token Refresher
+        async function fetchFreshDropboxToken() {
+            try {
+                const response = await fetch('https://api.dropbox.com/oauth2/token', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Basic ' + btoa(DROPBOX_APP_KEY + ':' + DROPBOX_APP_SECRET), 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ 'grant_type': 'refresh_token', 'refresh_token': DROPBOX_REFRESH_TOKEN })
+                });
+                const data = await response.json();
+                return data.access_token || null;
+            } catch (error) { return null; }
+        }
+
+        // 3. Drive Folder Creator Blueprint
         async function createNewFolderInDrive(token, folderName) {
             const metadata = {
                 name: folderName,
@@ -98,17 +325,14 @@
             };
             const response = await fetch('https://www.googleapis.com/drive/v3/files', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify(metadata)
             });
             const data = await response.json();
             return data.id;
         }
 
-        // 3. Single File Chunk Upload Logic (Folder aur URL dono ke liye same use hoga)
+        // 4. Unified Resumable Upload Processor Core (Handles Local files, URLs and Dropbox Blobs equally)
         async function uploadSingleFile(file, accessToken, targetFolderId, statusDiv, progressFill, progressText) {
             const metadata = { name: file.name, parents: [targetFolderId] };
             const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
@@ -116,15 +340,15 @@
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json; charset=UTF-8',
-                    'X-Upload-Content-Type': file.type
+                    'X-Upload-Content-Type': file.type || 'application/octet-stream'
                 },
                 body: JSON.stringify(metadata)
             });
 
             const uploadUrl = initResponse.headers.get('location');
-            if (!uploadUrl) throw new Error("Google ne upload session URL nahi diya.");
+            if (!uploadUrl) throw new Error("Google server failed to launch Resumable Session URL.");
 
-            const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+            const chunkSize = 5 * 1024 * 1024; // Standard 5MB Binary Block
             let start = 0;
 
             while (start < file.size) {
@@ -147,12 +371,14 @@
                     progressText.innerText = '100%';
                     break;
                 } else {
-                    throw new Error(`Upload failed! Status: ${uploadResponse.status}`);
+                    throw new Error(`Chunk terminal injection broke! Status: ${uploadResponse.status}`);
                 }
             }
         }
 
-        // 4. Main Folder Upload Manager (Purana Local System)
+        // =========================================================================
+        // PIPELINE BLOCK 1: LOCAL HARDWARE SYSTEM FILE FOLDER UPLOADER
+        // =========================================================================
         async function startFolderUpload() {
             const fileInput = document.getElementById('folderInput');
             const files = fileInput.files;
@@ -163,24 +389,23 @@
             const progressText = document.getElementById('progressText');
             const fileCountDiv = document.getElementById('fileCount');
 
-            if (files.length === 0) return alert("Pehle koi Folder select karo!");
+            if (files.length === 0) return alert("Pehle koi Folder select karein!");
 
             try {
                 btn.disabled = true;
                 progressContainer.style.display = 'block';
-                statusDiv.style.color = "#00ff66";
-                statusDiv.innerText = "Authenticating with Google...";
+                statusDiv.style.color = "var(--accent-green)";
+                statusDiv.innerText = "[SYS_AUTH]: Synchronizing secure Google infrastructure parameters...";
                 
                 const accessToken = await getAccessToken();
-
                 const localFolderName = files[0].webkitRelativePath.split('/')[0];
-                statusDiv.innerText = `Drive me naya folder '${localFolderName}' bana rahe hain...`;
+                statusDiv.innerText = `[DRIVE_FS]: Generating cloud instance mapping for directory: '${localFolderName}'`;
                 const destinationFolderId = await createNewFolderInDrive(accessToken, localFolderName);
 
                 for (let i = 0; i < files.length; i++) {
                     const currentFile = files[i];
-                    fileCountDiv.innerText = `Uploading File ${i + 1} of ${files.length}`;
-                    statusDiv.innerText = `Uploading: ${currentFile.name}`;
+                    fileCountDiv.innerText = `PIPELINE QUEUE DATA INDEX: File [${i + 1} / ${files.length}]`;
+                    statusDiv.innerText = `STREAMING BINARY NODE: ${currentFile.name}`;
                     
                     progressFill.style.width = '0%';
                     progressText.innerText = '0%';
@@ -188,25 +413,25 @@
                     await uploadSingleFile(currentFile, accessToken, destinationFolderId, statusDiv, progressFill, progressText);
                 }
 
-                fileCountDiv.innerText = "";
-                statusDiv.innerText = `🎉 Poora folder '${localFolderName}' kamyabi se upload ho gaya!`;
+                fileCountDiv.innerText = "TRANSFER CYCLE MATRIX RE-INDEXED COMPLETE";
+                statusDiv.innerText = `🎉 Successfully processed and uploaded entire folder: '${localFolderName}'`;
 
             } catch (error) {
-                statusDiv.style.color = "red";
-                statusDiv.innerText = "Error: " + error.message;
-                console.error(error);
+                statusDiv.style.color = "var(--accent-red)";
+                statusDiv.innerText = "CRITICAL FAULT ERROR: " + error.message;
             } finally {
                 btn.disabled = false;
                 fileInput.value = "";
             }
         }
 
-        // 5. URL UI Management Functions
+        // =========================================================================
+        // PIPELINE BLOCK 2: WEB LINK INSTANCE UPLOADER LAYER
+        // =========================================================================
         function addUrlToList() {
             const urlInput = document.getElementById('urlInput');
             const url = urlInput.value.trim();
-            if (!url) return alert("Pehle valid URL dalein!");
-            
+            if (!url) return alert("Pehle target URL trace string dalein!");
             urlList.push(url);
             urlInput.value = "";
             renderUrlList();
@@ -220,34 +445,24 @@
         function renderUrlList() {
             const listContainer = document.getElementById('urlListView');
             const uploadBtn = document.getElementById('uploadUrlsBtn');
-            
-            if (urlList.length === 0) {
-                listContainer.style.display = 'none';
-                uploadBtn.style.display = 'none';
-                return;
-            }
-
+            if (urlList.length === 0) { listContainer.style.display = 'none'; uploadBtn.style.display = 'none'; return; }
             listContainer.style.display = 'block';
             uploadBtn.style.display = 'inline-block';
             listContainer.innerHTML = "";
-
             urlList.forEach((url, index) => {
                 const li = document.createElement('li');
                 li.className = "url-item";
                 li.innerHTML = `
-                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">${url}</span>
-                    <button class="remove-btn" onclick="removeUrl(${index})">Remove</button>
+                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:75%; font-family:monospace; font-size:12px;">${url}</span>
+                    <button class="remove-url-btn" onclick="removeUrl(${index})"><i class="fa-solid fa-trash"></i></button>
                 `;
                 listContainer.appendChild(li);
             });
         }
 
-        // 6. URL Upload Manager (Naya System)
         async function startUrlUpload() {
-            if (urlList.length === 0) return alert("Koi URL added nahi hai!");
-
+            if (urlList.length === 0) return;
             const statusDiv = document.getElementById('status');
-            const folderBtn = document.getElementById('uploadBtn');
             const urlBtn = document.getElementById('uploadUrlsBtn');
             const progressContainer = document.getElementById('progressContainer');
             const progressFill = document.getElementById('progressFill');
@@ -255,63 +470,243 @@
             const fileCountDiv = document.getElementById('fileCount');
 
             try {
-                folderBtn.disabled = true;
                 urlBtn.disabled = true;
                 progressContainer.style.display = 'block';
-                statusDiv.style.color = "#00bfff";
-                statusDiv.innerText = "Authenticating with Google...";
+                statusDiv.style.color = "var(--accent-blue)";
+                statusDiv.innerText = "[SYS_AUTH]: Requesting server validation token access keys...";
                 
                 const accessToken = await getAccessToken();
-                
-                // Ek common folder banega URL uploads ke liye jisme aaj ki date hogi
-                const folderName = `URL_Uploads_${new Date().toISOString().slice(0,10)}`;
-                statusDiv.innerText = `Drive me naya folder '${folderName}' bana rahe hain...`;
+                const folderName = `URL_Stream_Cluster_${new Date().toISOString().slice(0,10)}`;
+                statusDiv.innerText = `[DRIVE_FS]: Setting up central repository index folder: '${folderName}'`;
                 const destinationFolderId = await createNewFolderInDrive(accessToken, folderName);
 
                 for (let i = 0; i < urlList.length; i++) {
                     const currentUrl = urlList[i];
-                    fileCountDiv.innerText = `Processing URL ${i + 1} of ${urlList.length}`;
-                    statusDiv.innerText = `Downloading file from URL into browser memory...`;
+                    fileCountDiv.innerText = `LINK NODE ROUTE PROCESS INDEX: [${i + 1} / ${urlList.length}]`;
+                    statusDiv.innerText = `[PROXY_FETCH]: Mirroring web node stream into transient secure memory core...`;
 
-                    // 1. URL se data fetch karna
                     const response = await fetch(currentUrl);
-                    if (!response.ok) throw new Error(`URL fetch fail hua! Status: ${response.status}`);
+                    if (!response.ok) throw new Error(`HTTP stream sync failure! Status response code: ${response.status}`);
                     
                     const contentType = response.headers.get('content-type') || 'application/octet-stream';
                     const blob = await response.blob();
                     
-                    // 2. URL se filename nikalna
                     let filename = currentUrl.split('/').pop().split('#')[0].split('?')[0];
-                    if (!filename || filename.trim() === '') {
-                        filename = `file_${i + 1}_${Date.now()}`;
-                    }
+                    if (!filename || filename.trim() === '') filename = `Streamed_Node_${i + 1}_${Date.now()}`;
 
-                    // 3. Blob ko File Object me convert karna taaki purana upload logic use ho sake
                     const currentFile = new File([blob], filename, { type: contentType });
+                    statusDiv.innerText = `[DRIVE_PIPELINE]: Broadcasting block chunks for file: ${currentFile.name}`;
+                    progressFill.style.width = '0%'; progressText.innerText = '0%';
 
-                    statusDiv.innerText = `Uploading to Drive: ${currentFile.name}`;
-                    progressFill.style.width = '0%';
-                    progressText.innerText = '0%';
-
-                    // Purane chunked upload function ko call karna
                     await uploadSingleFile(currentFile, accessToken, destinationFolderId, statusDiv, progressFill, progressText);
                 }
 
-                fileCountDiv.innerText = "";
-                urlList = []; // Clear array
-                renderUrlList(); // Reset list UI
-                statusDiv.style.color = "#00ff66";
-                statusDiv.innerText = `🎉 Saare URLs ki files kamyabi se '${folderName}' folder me upload ho gayi hain!`;
-
+                fileCountDiv.innerText = "STREAM INJECTION CYCLE COMPLETED SUCCESSFULLY";
+                urlList = []; renderUrlList();
+                statusDiv.style.color = "var(--accent-green)";
+                statusDiv.innerText = `🎉 All online file paths have been successfully pushed into target directory node: '${folderName}'`;
             } catch (error) {
-                statusDiv.style.color = "red";
-                statusDiv.innerText = "Error: " + error.message;
-                console.error(error);
+                statusDiv.style.color = "var(--accent-red)";
+                statusDiv.innerText = "LINK EXTRACTION FAILURE FAULT: " + error.message;
             } finally {
-                folderBtn.disabled = false;
                 urlBtn.disabled = false;
             }
         }
+
+        // =========================================================================
+        // PIPELINE BLOCK 3: NEW DROPBOX TO DRIVE INTER-CLOUD HIGH SPEED BRIDGE
+        // =========================================================================
+        document.getElementById('btn-dropbox-back').addEventListener('click', () => {
+            if (dropboxPathHistory.length > 0) {
+                const previousPath = dropboxPathHistory.pop();
+                fetchDropboxFiles(previousPath);
+            }
+        });
+
+        async function fetchDropboxFiles(path) {
+            dropboxCurrentPath = path;
+            document.getElementById('dropbox-path-view').innerText = path === "" ? "/root" : path;
+            document.getElementById('btn-dropbox-back').style.display = path === "" ? "none" : "inline-flex";
+            document.getElementById('dropboxFileGrid').innerHTML = `
+                <div class="text-center py-5 opacity-50 text-xs font-monospace">
+                    <i class="fa-solid fa-circle-notch fa-spin me-2 text-primary"></i> Mapping Dropbox Cluster Storage Tree...
+                </div>`;
+
+            dbx.filesListFolder({ path: path })
+                .then((response) => {
+                    dropboxCachedEntries = response.result.entries;
+                    renderDropboxUI(dropboxCachedEntries);
+                }).catch((err) => {
+                    document.getElementById('dropboxFileGrid').innerHTML = `<div class="p-3 text-center text-danger small font-monospace">[FATAL]: Cluster index synchronization failed: ${err.message}</div>`;
+                });
+        }
+
+        function renderDropboxUI(items) {
+            const grid = document.getElementById('dropboxFileGrid');
+            grid.innerHTML = "";
+
+            if(items.length === 0) {
+                grid.innerHTML = "<div class='text-center py-5 text-muted small font-monospace'>[Target Node Directory Empty]</div>";
+                return;
+            }
+
+            items.forEach((item) => {
+                const isFolder = item[".tag"] === "folder";
+                const fileExt = isFolder ? "" : item.name.split('.').pop().toLowerCase();
+                const isVideo = ["mp4", "mkv", "avi", "mov", "webm", "mp3", "zip", "rar", "pdf", "jpg", "png"].includes(fileExt) || !isFolder;
+
+                const row = document.createElement('div');
+                row.className = "dbx-item-row";
+
+                // UI Left Info block
+                const infoBlock = document.createElement('div');
+                infoBlock.className = "dbx-item-info";
+                if(isFolder) {
+                    infoBlock.innerHTML = `<i class="fa-solid fa-folder text-warning"></i> <span class="dbx-item-name">${item.name}</span>`;
+                    infoBlock.onclick = () => {
+                        dropboxPathHistory.push(dropboxCurrentPath);
+                        fetchDropboxFiles(item.path_lower);
+                    };
+                } else {
+                    infoBlock.innerHTML = `<i class="fa-solid fa-file-video text-danger"></i> <span class="dbx-item-name">${item.name}</span>`;
+                }
+
+                // UI Right Action block
+                const actionBlock = document.createElement('div');
+                if(!isFolder) {
+                    const upBtn = document.createElement('button');
+                    upBtn.className = "cloud-action-btn";
+                    upBtn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Upload`;
+                    upBtn.onclick = () => uploadSingleDropboxFileToDrive(item);
+                    actionBlock.appendChild(upBtn);
+                } else {
+                    actionBlock.innerHTML = `<span class="text-muted text-xs font-monospace">[Folder Node]</span>`;
+                }
+
+                row.appendChild(infoBlock);
+                row.appendChild(actionBlock);
+                grid.appendChild(row);
+            });
+        }
+
+        // Task runner to push single dropbox item into Drive Stream
+        async function uploadSingleDropboxFileToDrive(item) {
+            const statusDiv = document.getElementById('status');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const fileCountDiv = document.getElementById('fileCount');
+
+            try {
+                progressContainer.style.display = 'block';
+                statusDiv.style.color = "var(--accent-dropbox)";
+                statusDiv.innerText = `[DROPBOX_BRIDGE]: Instantiating link matrix token for: ${item.name}`;
+
+                // 1. Get Direct Secure Temporary Link from Dropbox Cluster
+                const linkRes = await dbx.filesGetTemporaryLink({ path: item.path_lower });
+                let targetUrl = linkRes.result.link;
+                
+                // User requirement correction rule synchronization (dl conversion logic check)
+                if (targetUrl.includes("www.dropbox.com")) {
+                    targetUrl = targetUrl.replace("www.dropbox.com", "dl.dropboxusercontent.com");
+                }
+                let rawStreamingUrl = targetUrl.split('?')[0] + "?raw=1";
+
+                statusDiv.innerText = `[INTER-CLOUD]: Fetching live binary stream data blocks into browser environment buffer cache...`;
+                const streamResponse = await fetch(rawStreamingUrl);
+                if(!streamResponse.ok) throw new Error("Could not pipe live data from dropbox edge source server.");
+                
+                const blobData = await streamResponse.blob();
+                const readyFileNode = new File([blobData], item.name, { type: blobData.type });
+
+                statusDiv.innerText = `[SYS_AUTH]: Requesting transaction permissions from Google Cloud Engine...`;
+                const gToken = await getAccessToken();
+                
+                const folderName = `Dropbox_Pulled_Nodes`;
+                statusDiv.innerText = `[DRIVE_FS]: Syncing root default directory: '${folderName}'`;
+                const targetDriveFolderId = await createNewFolderInDrive(gToken, folderName);
+
+                fileCountDiv.innerText = `PIPELINE OPERATION: Inter-Cloud Bridge System Transfer active`;
+                statusDiv.innerText = `[UPLOAD_PIPELINE]: Chunk streaming binary stream nodes directly to Drive server...`;
+                progressFill.style.width = '0%'; progressText.innerText = '0%';
+
+                await uploadSingleFile(readyFileNode, gToken, targetDriveFolderId, statusDiv, progressFill, progressText);
+
+                fileCountDiv.innerText = "INTER-CLOUD STREAM SUCCESSFUL";
+                statusDiv.style.color = "var(--accent-green)";
+                statusDiv.innerText = `🎉 File '${item.name}' completely transmitted from Dropbox node right into Google Drive folder: '${folderName}'!`;
+
+            } catch (error) {
+                statusDiv.style.color = "var(--accent-red)";
+                statusDiv.innerText = "BRIDGE ROUTING CRITICAL INTERRUPT ERROR: " + error.message;
+            }
+        }
+
+        // Upload entire directory content layer recursive loop
+        async function uploadEntireCurrentDropboxFolder() {
+            const statusDiv = document.getElementById('status');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const fileCountDiv = document.getElementById('fileCount');
+
+            // Extract only applicable video nodes inside current structure cache
+            const directFilesToUpload = dropboxCachedEntries.filter(e => e[".tag"] === "file");
+            if(directFilesToUpload.length === 0) return alert("Current path configuration window contains no standalone file nodes to extract!");
+
+            if(!confirm(`Kya aap is Dropbox directory ke saare (${directFilesToUpload.length}) files ko Google Drive mein direct parallelize backup dena chahte hain?`)) return;
+
+            try {
+                progressContainer.style.display = 'block';
+                statusDiv.style.color = "var(--accent-dropbox)";
+                statusDiv.innerText = "[BRIDGE_CLUSTER]: Generating authorization tokens across dual cloud structures...";
+                
+                const gToken = await getAccessToken();
+                const parentFolderName = dropboxCurrentPath === "" ? "Dropbox_Root_Dump" : dropboxCurrentPath.split('/').pop();
+                const targetDriveFolderId = await createNewFolderInDrive(gToken, `DBX_Backup_${parentFolderName}`);
+
+                for(let i=0; i<directFilesToUpload.length; i++) {
+                    const currentItem = directFilesToUpload[i];
+                    fileCountDiv.innerText = `MASS CLUSTER OPERATION PIPELINE QUEUE: [File ${i+1} / ${directFilesToUpload.length}]`;
+                    statusDiv.innerText = `[1/2] requesting remote download keys for: ${currentItem.name}`;
+
+                    const linkRes = await dbx.filesGetTemporaryLink({ path: currentItem.path_lower });
+                    let cleanUrl = linkRes.result.link.includes("www.dropbox.com") ? linkRes.result.link.replace("www.dropbox.com", "dl.dropboxusercontent.com") : linkRes.result.link;
+                    let fileRawLink = cleanUrl.split('?')[0] + "?raw=1";
+
+                    statusDiv.innerText = `[2/2] Buffering file binary blocks across networks...`;
+                    const resStream = await fetch(fileRawLink);
+                    const fileBlob = await resStream.blob();
+                    const wrappedFileObject = new File([fileBlob], currentItem.name, { type: fileBlob.type });
+
+                    statusDiv.innerText = `Chunk uploading file directly to Drive servers: ${currentItem.name}`;
+                    progressFill.style.width = '0%'; progressText.innerText = '0%';
+
+                    await uploadSingleFile(wrappedFileObject, gToken, targetDriveFolderId, statusDiv, progressFill, progressText);
+                }
+
+                fileCountDiv.innerText = "MASS INTER-CLOUD REPLICATION PROCESS TERMINATED COMPLETE";
+                statusDiv.style.color = "var(--accent-green)";
+                statusDiv.innerText = `🎉 Pure folder '${parentFolderName}' ke saare files Google Drive backup system cluster me upload ho gaye!`;
+
+            } catch (error) {
+                statusDiv.style.color = "var(--accent-red)";
+                statusDiv.innerText = "MASS PIPELINE ERROR CRITICAL TRACE: " + error.message;
+            }
+        }
+
+        // Lifecycle Ignition Entrypoint
+        document.addEventListener("DOMContentLoaded", async () => {
+            const freshDropboxToken = await fetchFreshDropboxToken();
+            if (!freshDropboxToken) {
+                document.getElementById('dbx-loader').innerText = "FATAL: Could not map secure internal authorization cluster node credentials.";
+                document.getElementById('dbx-loader').style.color = "var(--accent-red)";
+                return;
+            }
+            // Dropbox SDK initialization
+            dbx = new Dropbox.Dropbox({ accessToken: freshDropboxToken });
+            fetchDropboxFiles(""); // Initializing tree configuration mapping
+        });
     </script>
 </body>
 </html>
