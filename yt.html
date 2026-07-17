@@ -3,86 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Playlist Downloader</title>
+    <title>Premium Playlist Extractor & Downloader</title>
+    
+    <!-- Bootstrap 5.3 & Icons (As per your provided source layout) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
     <style>
-        /* Pure Dark OLED Theme */
+        /* Pure OLED Black Dashboard */
         :root {
             --bg-color: #000000;
-            --card-bg: #0d0d0d;
+            --card-bg: #090909;
             --accent-color: #ff0000;
             --text-color: #e5e5e5;
-            --text-secondary: #888888;
-            --border-color: #1a1a1a;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --border-color: #161616;
         }
 
         body {
             background-color: var(--bg-color);
             color: var(--text-color);
-            padding: 30px 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            padding: 30px 10px;
             min-height: 100vh;
         }
 
-        .container {
-            width: 100%;
-            max-width: 1200px;
-        }
-
-        h1 {
-            text-align: center;
-            margin-bottom: 25px;
-            font-weight: 700;
-            font-size: 24px;
-            letter-spacing: -0.5px;
-        }
-
-        /* Search Input */
         .search-box {
             display: flex;
             gap: 10px;
-            margin-bottom: 30px;
-            background: var(--card-bg);
+            margin-bottom: 35px;
+            background: #0c0c0c;
             padding: 8px;
-            border-radius: 10px;
+            border-radius: 12px;
             border: 1px solid var(--border-color);
         }
 
-        input[type="text"] {
+        .search-box input {
             flex: 1;
             background: transparent;
             border: none;
-            color: #ffffff;
-            padding: 12px;
-            font-size: 16px;
+            color: #fff;
+            padding: 10px;
             outline: none;
         }
 
-        button {
+        .search-box button {
             background: var(--accent-color);
-            color: #ffffff;
+            color: #fff;
             border: none;
-            padding: 12px 20px;
+            padding: 10px 24px;
             border-radius: 8px;
-            font-size: 15px;
-            cursor: pointer;
             font-weight: 600;
-            transition: background 0.2s ease;
         }
 
-        button:hover {
-            background: #cc0000;
-        }
-
-        /* Video Responsive Grid */
+        /* Video Responsive Layout */
         .video-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -92,34 +64,29 @@
 
         .video-card {
             background: var(--card-bg);
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
             border: 1px solid var(--border-color);
             cursor: pointer;
             transition: transform 0.2s ease;
             display: flex;
             flex-direction: column;
-            text-decoration: none;
-            color: inherit;
         }
 
         .video-card:hover {
-            transform: translateY(-3px);
+            transform: translateY(-4px);
         }
 
-        .thumbnail-box {
+        .thumb-box {
             position: relative;
             width: 100%;
             padding-top: 56.25%;
-            background: #111;
+            background: #000;
         }
 
-        .thumbnail-box img {
+        .thumb-box img {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             object-fit: cover;
         }
 
@@ -140,36 +107,41 @@
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
-            margin-bottom: 10px;
-            color: #ffffff;
+            color: #fff;
+            margin-bottom: 8px;
         }
 
-        .dl-status-btn {
-            background: #1a1a1a;
+        .action-btn {
+            background: #111;
             color: #00ff66;
             text-align: center;
             padding: 8px;
             border-radius: 6px;
             font-size: 13px;
             font-weight: 600;
-            border: 1px solid #00441a;
+            border: 1px solid #004d1f;
         }
 
-        /* Bottom Controls */
-        .controls {
+        /* Modal/Engine Frame Adjustments */
+        .engine-frame {
+            width: 100%;
+            height: 480px;
+            border: none;
+            background: #000;
+            border-radius: 8px;
+        }
+
+        .hidden { display: none !important; }
+        
+        .status-log {
+            text-align: center;
+            color: #888;
+            margin: 20px 0;
+        }
+
+        .load-more-container {
             display: flex;
             justify-content: center;
-            margin-top: 10px;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .status-msg {
-            text-align: center;
-            color: var(--text-secondary);
-            font-size: 15px;
             margin-top: 20px;
         }
     </style>
@@ -177,154 +149,187 @@
 <body>
 
     <div class="container">
-        <h1>YouTube Playlist Downloader</h1>
+        <h2 class="text-center fw-bold mb-4"><span style="color:var(--accent-color)">GenYouTube</span> Custom Playlist Client</h2>
         
+        <!-- Link Input Bar -->
         <div class="search-box">
-            <input type="text" id="playlistLink" placeholder="Paste YouTube Playlist Link Here...">
-            <button onclick="fetchPlaylist()">Fetch Videos</button>
+            <input type="text" id="playlistUrl" placeholder="Paste YouTube Playlist Link here...">
+            <button onclick="initializeFetch()">Extract Videos</button>
         </div>
 
-        <div id="status" class="status-msg hidden"></div>
+        <div id="statusAlert" class="status-log hidden"></div>
         
-        <div class="video-grid" id="videoGrid"></div>
+        <!-- Video Rendering Grid -->
+        <div class="video-grid" id="mainGrid"></div>
 
-        <div class="controls">
-            <button id="loadMoreBtn" class="hidden" onclick="renderNextBatch()">Load More</button>
+        <!-- Pagination (100 video limit standard check) -->
+        <div class="load-more-container">
+            <button id="btnLoadMore" class="btn btn-danger hidden" onclick="renderVideoBatch()">Load More</button>
         </div>
     </div>
 
-    <script>
-        // ENTER YOUR YOUTUBE API KEY HERE
-        const API_KEY = 'AIzaSyAL4pD-wKL8GFfX9Na2jRwx7kuQWPdirl0'; 
-        
-        let allVideos = [];
-        let currentIndex = 0;
-        const BATCH_SIZE = 100;
-        let nextPageToken = '';
-        let currentPlaylistId = '';
+    <!-- Download Engine Modal Control (Keeps processing within your domain hub) -->
+    <div class="modal fade" id="downloadProcessModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark text-white border-secondary">
+                <div class="modal-header border-secondary justify-content-between">
+                    <h5 class="modal-title" id="modalVideoTitle">Select Format & Quality</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <!-- Embedded GenYouTube conversion core tunnel inside your layout layer -->
+                    <iframe id="engineTunnel" class="engine-frame"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        function extractPlaylistId(url) {
-            const reg = /[&?]list=([^#\&\?]+)/;
-            const match = url.match(reg);
+    <!-- Script Engines -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // ENTER YOUR GOOGLE YOUTUBE DATA API V3 KEY HERE
+        const CORE_API_KEY = 'AIzaSyAL4pD-wKL8GFfX9Na2jRwx7kuQWPdirl0'; 
+
+        let datasetContainer = [];
+        let globalPointer = 0;
+        const BATCH_LIMIT = 100;
+        let tokenTracker = '';
+        let extractedPlaylistId = '';
+
+        function extractId(url) {
+            const regex = /[&?]list=([^#\&\?]+)/;
+            const match = url.match(regex);
             return (match && match[1]) ? match[1] : url;
         }
 
-        async function fetchPlaylist() {
-            const linkInput = document.getElementById('playlistLink').value.trim();
-            if (!linkInput) {
-                alert('Please paste a playlist link first!');
+        async function initializeFetch() {
+            const inputVal = document.getElementById('playlistUrl').value.trim();
+            if (!inputVal) {
+                alert('Please input a valid URL payload first.');
                 return;
             }
 
-            currentPlaylistId = extractPlaylistId(linkInput);
+            extractedPlaylistId = extractId(inputVal);
             
-            // Reset state arrays
-            allVideos = [];
-            currentIndex = 0;
-            nextPageToken = '';
-            document.getElementById('videoGrid').innerHTML = '';
-            document.getElementById('loadMoreBtn').classList.add('hidden');
+            // Clean dynamic components
+            datasetContainer = [];
+            globalPointer = 0;
+            tokenTracker = '';
+            document.getElementById('mainGrid').innerHTML = '';
+            document.getElementById('btnLoadMore').classList.add('hidden');
             
-            showStatus('Loading all playlist items from YouTube...');
+            toggleStatusLog('Accessing YouTube structural pathways...');
             
             try {
-                await fetchAllPlaylistItems();
-            } catch (error) {
-                console.error(error);
-                showStatus('Error fetching playlist. Please check your API key or link.');
+                await executeDeepExtraction();
+            } catch (err) {
+                console.error(err);
+                toggleStatusLog('Network extraction halted. Check API key configurations.');
             }
         }
 
-        // Deep loop to extract up to 500-1000+ items seamlessly
-        async function fetchAllPlaylistItems() {
-            let hasNext = true;
+        async function executeDeepExtraction() {
+            let activeLoop = true;
             
-            while (hasNext) {
-                let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${currentPlaylistId}&key=${API_KEY}`;
-                if (nextPageToken) {
-                    url += `&pageToken=${nextPageToken}`;
+            while (activeLoop) {
+                let proxyUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${extractedPlaylistId}&key=${CORE_API_KEY}`;
+                if (tokenTracker) {
+                    proxyUrl += `&pageToken=${tokenTracker}`;
                 }
 
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('API down or incorrect token');
+                const networkResponse = await fetch(proxyUrl);
+                if (!networkResponse.ok) throw new Error('API processing error');
                 
-                const data = await response.json();
+                const responseData = await networkResponse.json();
                 
-                const validItems = data.items.filter(item => 
-                    item.snippet && 
-                    item.snippet.thumbnails && 
-                    item.snippet.title !== 'Private video' && 
-                    item.snippet.title !== 'Deleted video'
+                const sanitizedItems = responseData.items.filter(node => 
+                    node.snippet && 
+                    node.snippet.thumbnails && 
+                    node.snippet.title !== 'Private video' && 
+                    node.snippet.title !== 'Deleted video'
                 );
 
-                allVideos.push(...validItems);
+                datasetContainer.push(...sanitizedItems);
                 
-                if (data.nextPageToken) {
-                    nextPageToken = data.nextPageToken;
+                if (responseData.nextPageToken) {
+                    tokenTracker = responseData.nextPageToken;
                 } else {
-                    hasNext = false;
+                    activeLoop = false;
                 }
             }
 
-            hideStatus();
+            toggleStatusLog('');
             
-            if (allVideos.length === 0) {
-                showStatus('No public videos detected inside this playlist.');
+            if (datasetContainer.length === 0) {
+                toggleStatusLog('No translatable media items parsed.');
             } else {
-                renderNextBatch();
+                renderVideoBatch();
             }
         }
 
-        // Strict batch pagination layout
-        function renderNextBatch() {
-            const grid = document.getElementById('videoGrid');
-            const limit = Math.min(currentIndex + BATCH_SIZE, allVideos.length);
+        function renderVideoBatch() {
+            const targetGrid = document.getElementById('mainGrid');
+            const ceiling = Math.min(globalPointer + BATCH_LIMIT, datasetContainer.length);
             
-            for (let i = currentIndex; i < limit; i++) {
-                const item = allVideos[i];
-                const title = item.snippet.title;
-                const thumbnail = item.snippet.thumbnails.medium ? item.snippet.thumbnails.medium.url : item.snippet.thumbnails.default.url;
-                const videoId = item.snippet.resourceId.videoId;
-                
-                // Highly stable SaveFrom alternative gateway endpoint mapping
-                const targetDownloadUrl = `https://ssyoutube.com/en7/youtube-video-downloader?url=https://www.youtube.com/watch?v=${videoId}`;
+            for (let index = globalPointer; index < ceiling; index++) {
+                const nodeItem = datasetContainer[index];
+                const metaTitle = nodeItem.snippet.title;
+                const imgThumb = nodeItem.snippet.thumbnails.medium ? nodeItem.snippet.thumbnails.medium.url : nodeItem.snippet.thumbnails.default.url;
+                const nativeVideoId = nodeItem.snippet.resourceId.videoId;
 
-                const card = document.createElement('a');
-                card.className = 'video-card';
-                card.href = targetDownloadUrl;
-                card.target = '_blank'; // Opens in a clean external tab
+                const wrapperCard = document.createElement('div');
+                wrapperCard.className = 'video-card';
+                // Trigger internal modal download processing execution layer
+                wrapperCard.onclick = () => activateDownloadEngine(nativeVideoId, metaTitle);
                 
-                card.innerHTML = `
-                    <div class="thumbnail-box">
-                        <img src="${thumbnail}" alt="${title}" loading="lazy">
+                wrapperCard.innerHTML = `
+                    <div class="thumb-box">
+                        <img src="${imgThumb}" alt="${metaTitle}" loading="lazy">
                     </div>
                     <div class="video-info">
-                        <div class="video-title">${title}</div>
-                        <div class="dl-status-btn">Download Video</div>
+                        <div class="video-title">${metaTitle}</div>
+                        <div class="action-btn"><i class="bi bi-download"></i> Options & Download</div>
                     </div>
                 `;
-                grid.appendChild(card);
+                targetGrid.appendChild(wrapperCard);
             }
 
-            currentIndex = limit;
+            globalPointer = ceiling;
 
-            // Load more display trigger logic
-            const loadMoreBtn = document.getElementById('loadMoreBtn');
-            if (currentIndex < allVideos.length) {
-                loadMoreBtn.classList.remove('hidden');
+            const moreBtn = document.getElementById('btnLoadMore');
+            if (globalPointer < datasetContainer.length) {
+                moreBtn.classList.remove('hidden');
             } else {
-                loadMoreBtn.classList.add('hidden');
+                moreBtn.classList.add('hidden');
             }
         }
 
-        function showStatus(msg) {
-            const status = document.getElementById('status');
-            status.textContent = msg;
-            status.classList.remove('hidden');
+        // GenYouTube engine interface mapping
+        function activateDownloadEngine(videoId, title) {
+            document.getElementById('modalVideoTitle').textContent = title;
+            
+            // Setting target destination pointing to GenYouTube watch engine sequence parameters
+            const dynamicEngineUrl = `https://genyoutube.online/en1/url=https://www.youtube.com/watch?v=${videoId}`;
+            
+            // Assigning source inside the modal frame container natively
+            const frameRef = document.getElementById('engineTunnel');
+            frameRef.src = dynamicEngineUrl;
+
+            // Instantiating standard Bootstrap Modal controller interface sequence 
+            const processingModal = new bootstrap.Modal(document.getElementById('downloadProcessModal'));
+            processingModal.show();
         }
 
-        function hideStatus() {
-            document.getElementById('status').classList.add('hidden');
+        function toggleStatusLog(msg) {
+            const container = document.getElementById('statusAlert');
+            if(msg) {
+                container.textContent = msg;
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
         }
     </script>
 </body>
