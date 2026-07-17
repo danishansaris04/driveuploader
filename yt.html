@@ -3,66 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Playlist Downloader</title>
+    <title>YouTube Playlist Downloader</title>
     <style>
-        :root { --bg-color: #0a0a0a; --card-bg: #141414; --accent-color: #ff0000; --text-color: #e0e0e0; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-color); padding: 40px 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        .container { width: 100%; max-width: 1200px; }
-        .search-box { display: flex; gap: 10px; margin-bottom: 40px; background: var(--card-bg); padding: 10px; border-radius: 8px; }
-        input { flex: 1; background: transparent; border: none; color: white; padding: 12px; font-size: 16px; outline: none; }
-        button { background: var(--accent-color); color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-        .video-card { background: var(--card-bg); border-radius: 8px; overflow: hidden; cursor: pointer; transition: 0.2s; padding-bottom: 10px; }
-        .thumbnail { width: 100%; height: 150px; object-fit: cover; }
-        .title { padding: 10px; font-size: 14px; height: 40px; overflow: hidden; }
-        .btn-dl { display: block; width: 90%; margin: 10px auto; text-align: center; background: #333; padding: 8px; border-radius: 4px; color: #0f0; text-decoration: none; font-size: 12px; }
+        /* Pure Dark OLED Theme */
+        :root {
+            --bg-color: #000000;
+            --card-bg: #0d0d0d;
+            --accent-color: #ff0000;
+            --text-color: #e5e5e5;
+            --text-secondary: #888888;
+            --border-color: #1a1a1a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 30px 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 25px;
+            font-weight: 700;
+            font-size: 24px;
+            letter-spacing: -0.5px;
+        }
+
+        /* Search Input */
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            background: var(--card-bg);
+            padding: 8px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            padding: 12px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        button {
+            background: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s ease;
+        }
+
+        button:hover {
+            background: #cc0000;
+        }
+
+        /* Video Responsive Grid */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .video-card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .video-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .thumbnail-box {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%;
+            background: #111;
+        }
+
+        .thumbnail-box img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-info {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            justify-content: space-between;
+        }
+
+        .video-title {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.4;
+            max-height: 40px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+
+        .dl-status-btn {
+            background: #1a1a1a;
+            color: #00ff66;
+            text-align: center;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid #00441a;
+        }
+
+        /* Bottom Controls */
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .status-msg {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 15px;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
+
     <div class="container">
-        <h1>Playlist Downloader</h1>
+        <h1>YouTube Playlist Downloader</h1>
+        
         <div class="search-box">
-            <input type="text" id="playlistLink" placeholder="Paste Playlist Link...">
+            <input type="text" id="playlistLink" placeholder="Paste YouTube Playlist Link Here...">
             <button onclick="fetchPlaylist()">Fetch Videos</button>
         </div>
+
+        <div id="status" class="status-msg hidden"></div>
+        
         <div class="video-grid" id="videoGrid"></div>
+
+        <div class="controls">
+            <button id="loadMoreBtn" class="hidden" onclick="renderNextBatch()">Load More</button>
+        </div>
     </div>
 
     <script>
-        const API_KEY = 'AIzaSyAL4pD-wKL8GFfX9Na2jRwx7kuQWPdirl0'; // Yahan apni key dalen
+        // ENTER YOUR YOUTUBE API KEY HERE
+        const API_KEY = 'AIzaSyAL4pD-wKL8GFfX9Na2jRwx7kuQWPdirl0'; 
         
+        let allVideos = [];
+        let currentIndex = 0;
+        const BATCH_SIZE = 100;
+        let nextPageToken = '';
+        let currentPlaylistId = '';
+
         function extractPlaylistId(url) {
-            const match = url.match(/[&?]list=([^#\&\?]+)/);
+            const reg = /[&?]list=([^#\&\?]+)/;
+            const match = url.match(reg);
             return (match && match[1]) ? match[1] : url;
         }
 
         async function fetchPlaylist() {
-            const id = extractPlaylistId(document.getElementById('playlistLink').value);
-            const res = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${id}&key=${API_KEY}`);
-            const data = await res.json();
-            const grid = document.getElementById('videoGrid');
-            grid.innerHTML = '';
+            const linkInput = document.getElementById('playlistLink').value.trim();
+            if (!linkInput) {
+                alert('Please paste a playlist link first!');
+                return;
+            }
+
+            currentPlaylistId = extractPlaylistId(linkInput);
             
-            data.items.forEach(item => {
-                const videoId = item.snippet.resourceId.videoId;
-                const card = document.createElement('div');
-                card.className = 'video-card';
-                card.innerHTML = `
-                    <img class="thumbnail" src="${item.snippet.thumbnails.medium.url}">
-                    <div class="title">${item.snippet.title}</div>
-                    <a class="btn-dl" onclick="downloadVideo('${videoId}')">Download Now</a>
-                `;
-                grid.appendChild(card);
-            });
+            // Reset state arrays
+            allVideos = [];
+            currentIndex = 0;
+            nextPageToken = '';
+            document.getElementById('videoGrid').innerHTML = '';
+            document.getElementById('loadMoreBtn').classList.add('hidden');
+            
+            showStatus('Loading all playlist items from YouTube...');
+            
+            try {
+                await fetchAllPlaylistItems();
+            } catch (error) {
+                console.error(error);
+                showStatus('Error fetching playlist. Please check your API key or link.');
+            }
         }
 
-        // Yeh method 100% kaam karega
-        function downloadVideo(videoId) {
-            // Hum ek naye tab me downloader khol rahe hain. 
-            // Yeh sabse stable tarika hai.
-            const url = `https://loader.to/api/button/?url=https://youtube.com/watch?v=${videoId}&f=mp4`;
-            window.open(url, '_blank');
+        // Deep loop to extract up to 500-1000+ items seamlessly
+        async function fetchAllPlaylistItems() {
+            let hasNext = true;
+            
+            while (hasNext) {
+                let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${currentPlaylistId}&key=${API_KEY}`;
+                if (nextPageToken) {
+                    url += `&pageToken=${nextPageToken}`;
+                }
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('API down or incorrect token');
+                
+                const data = await response.json();
+                
+                const validItems = data.items.filter(item => 
+                    item.snippet && 
+                    item.snippet.thumbnails && 
+                    item.snippet.title !== 'Private video' && 
+                    item.snippet.title !== 'Deleted video'
+                );
+
+                allVideos.push(...validItems);
+                
+                if (data.nextPageToken) {
+                    nextPageToken = data.nextPageToken;
+                } else {
+                    hasNext = false;
+                }
+            }
+
+            hideStatus();
+            
+            if (allVideos.length === 0) {
+                showStatus('No public videos detected inside this playlist.');
+            } else {
+                renderNextBatch();
+            }
+        }
+
+        // Strict batch pagination layout
+        function renderNextBatch() {
+            const grid = document.getElementById('videoGrid');
+            const limit = Math.min(currentIndex + BATCH_SIZE, allVideos.length);
+            
+            for (let i = currentIndex; i < limit; i++) {
+                const item = allVideos[i];
+                const title = item.snippet.title;
+                const thumbnail = item.snippet.thumbnails.medium ? item.snippet.thumbnails.medium.url : item.snippet.thumbnails.default.url;
+                const videoId = item.snippet.resourceId.videoId;
+                
+                // Highly stable SaveFrom alternative gateway endpoint mapping
+                const targetDownloadUrl = `https://ssyoutube.com/en7/youtube-video-downloader?url=https://www.youtube.com/watch?v=${videoId}`;
+
+                const card = document.createElement('a');
+                card.className = 'video-card';
+                card.href = targetDownloadUrl;
+                card.target = '_blank'; // Opens in a clean external tab
+                
+                card.innerHTML = `
+                    <div class="thumbnail-box">
+                        <img src="${thumbnail}" alt="${title}" loading="lazy">
+                    </div>
+                    <div class="video-info">
+                        <div class="video-title">${title}</div>
+                        <div class="dl-status-btn">Download Video</div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            }
+
+            currentIndex = limit;
+
+            // Load more display trigger logic
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (currentIndex < allVideos.length) {
+                loadMoreBtn.classList.remove('hidden');
+            } else {
+                loadMoreBtn.classList.add('hidden');
+            }
+        }
+
+        function showStatus(msg) {
+            const status = document.getElementById('status');
+            status.textContent = msg;
+            status.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            document.getElementById('status').classList.add('hidden');
         }
     </script>
 </body>
