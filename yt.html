@@ -3,90 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premium Playlist Extractor & Downloader</title>
-    
-    <!-- Bootstrap 5.3 & Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    
+    <title>YouTube Playlist Viewer</title>
     <style>
-        /* Pure OLED Black Theme */
+        /* Modern Dark Minimalist Theme */
         :root {
-            --bg-color: #000000;
-            --card-bg: #090909;
+            --bg-color: #0a0a0a;
+            --card-bg: #141414;
             --accent-color: #ff0000;
-            --text-color: #e5e5e5;
-            --border-color: #161616;
+            --text-color: #e0e0e0;
+            --text-secondary: #aaaaaa;
+            --border-color: #222222;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         body {
             background-color: var(--bg-color);
             color: var(--text-color);
-            padding: 30px 10px;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             min-height: 100vh;
         }
 
+        .container {
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Input Area */
         .search-box {
             display: flex;
             gap: 10px;
-            margin-bottom: 35px;
-            background: #0c0c0c;
-            padding: 8px;
-            border-radius: 12px;
+            margin-bottom: 40px;
+            background: var(--card-bg);
+            padding: 10px;
+            border-radius: 8px;
             border: 1px solid var(--border-color);
         }
 
-        .search-box input {
+        input[type="text"] {
             flex: 1;
             background: transparent;
             border: none;
-            color: #fff;
-            padding: 10px;
+            color: var(--text-color);
+            padding: 12px;
+            font-size: 16px;
             outline: none;
         }
 
-        .search-box button {
+        button {
             background: var(--accent-color);
-            color: #fff;
+            color: #ffffff;
             border: none;
-            padding: 10px 24px;
-            border-radius: 8px;
-            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s ease;
         }
 
-        /* Video Grid */
+        button:hover {
+            background: #cc0000;
+        }
+
+        /* Video Grid Layout */
         .video-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
             margin-bottom: 30px;
         }
 
         .video-card {
             background: var(--card-bg);
-            border-radius: 12px;
+            border-radius: 8px;
             overflow: hidden;
             border: 1px solid var(--border-color);
             cursor: pointer;
-            transition: transform 0.2s ease;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            text-decoration: none;
+            color: inherit;
             display: flex;
             flex-direction: column;
         }
 
         .video-card:hover {
             transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
         }
 
-        .thumb-box {
+        .thumbnail-container {
             position: relative;
             width: 100%;
-            padding-top: 56.25%;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
             background: #000;
         }
 
-        .thumb-box img {
+        .thumbnail-container img {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             object-fit: cover;
         }
 
@@ -95,246 +128,197 @@
             display: flex;
             flex-direction: column;
             flex-grow: 1;
-            justify-content: space-between;
         }
 
         .video-title {
             font-size: 14px;
             font-weight: 500;
             line-height: 1.4;
-            max-height: 40px;
+            height: 40px;
             overflow: hidden;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
-            color: #fff;
             margin-bottom: 8px;
         }
 
-        .action-btn {
-            background: #111;
-            color: #00ff66;
-            text-align: center;
-            padding: 8px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 600;
-            border: 1px solid #004d1f;
+        .video-index {
+            font-size: 12px;
+            color: var(--text-secondary);
         }
 
-        .hidden { display: none !important; }
-        
-        .status-log {
-            text-align: center;
-            color: #888;
-            margin: 20px 0;
-        }
-
-        .load-more-container {
+        /* Action Buttons */
+        .controls {
             display: flex;
             justify-content: center;
             margin-top: 20px;
         }
 
-        /* Quality List Items inside Modal */
-        .quality-item-btn {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #121212;
-            border: 1px solid #222;
-            color: #fff;
-            padding: 14px 20px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.2s;
+        .hidden {
+            display: none !important;
         }
 
-        .quality-item-btn:hover {
-            background: #1a1a1a;
-            color: #00ff66;
-            border-color: #00ff66;
-        }
-
-        .stream-type {
-            font-size: 12px;
-            background: #ff0000;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
+        .status-msg {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 16px;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2 class="text-center fw-bold mb-4"><span style="color:var(--accent-color)">GenYouTube</span> Playlist Client</h2>
+        <h1>YouTube Playlist Extractor</h1>
         
         <div class="search-box">
-            <input type="text" id="playlistUrl" placeholder="Paste YouTube Playlist Link here...">
-            <button onclick="initializeFetch()">Extract Videos</button>
+            <input type="text" id="playlistLink" placeholder="Paste YouTube Playlist Link Here...">
+            <button onclick="fetchPlaylist()">Fetch Videos</button>
         </div>
 
-        <div id="statusAlert" class="status-log hidden"></div>
-        <div class="video-grid" id="mainGrid"></div>
+        <div id="status" class="status-msg hidden"></div>
+        
+        <div class="video-grid" id="videoGrid"></div>
 
-        <div class="load-more-container">
-            <button id="btnLoadMore" class="btn btn-danger hidden" onclick="renderVideoBatch()">Load More</button>
-        </div>
-    </div>
-
-    <!-- Download Options Modal (No Iframe, Pure Native Elements) -->
-    <div class="modal fade" id="downloadProcessModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark text-white border-secondary">
-                <div class="modal-header border-secondary justify-content-between">
-                    <h5 class="modal-title" id="modalVideoTitle">Select Quality</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="modalOptionsBody">
-                    <!-- Clean Buttons will be injected here dynamically -->
-                </div>
-            </div>
+        <div class="controls">
+            <button id="loadMoreBtn" class="hidden" onclick="renderNextBatch()">Load More</button>
         </div>
     </div>
-
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // ENTER YOUR YOUTUBE DATA API KEY HERE
-        const CORE_API_KEY = 'AIzaSyAL4pD-wKL8GFfX9Na2jRwx7kuQWPdirl0'; 
+        // ENTER YOUR YOUTUBE API KEY HERE
+        const API_KEY = 'AIzaSyAL4pD-wKL8GFfX9Na2jRwx7kuQWPdirl0'; 
+        
+        let allVideos = [];
+        let currentIndex = 0;
+        const BATCH_SIZE = 100;
+        let nextPageToken = '';
+        let currentPlaylistId = '';
 
-        let datasetContainer = [];
-        let globalPointer = 0;
-        const BATCH_LIMIT = 100;
-        let tokenTracker = '';
-        let extractedPlaylistId = '';
-
-        function extractId(url) {
-            const regex = /[&?]list=([^#\&\?]+)/;
-            const match = url.match(regex);
+        // Function to extract Playlist ID from URL
+        function extractPlaylistId(url) {
+            const reg = /[&?]list=([^#\&\?]+)/;
+            const match = url.match(reg);
             return (match && match[1]) ? match[1] : url;
         }
 
-        async function initializeFetch() {
-            const inputVal = document.getElementById('playlistUrl').value.trim();
-            if (!inputVal) {
-                alert('Please enter a valid link');
+        async function fetchPlaylist() {
+            const linkInput = document.getElementById('playlistLink').value.trim();
+            if (!linkInput) {
+                alert('Please paste a valid link');
                 return;
             }
-            extractedPlaylistId = extractId(inputVal);
-            datasetContainer = [];
-            globalPointer = 0;
-            tokenTracker = '';
-            document.getElementById('mainGrid').innerHTML = '';
-            document.getElementById('btnLoadMore').classList.add('hidden');
+
+            currentPlaylistId = extractPlaylistId(linkInput);
             
-            toggleStatusLog('Extracting videos from playlist...');
+            // Reset state
+            allVideos = [];
+            currentIndex = 0;
+            nextPageToken = '';
+            document.getElementById('videoGrid').innerHTML = '';
+            document.getElementById('loadMoreBtn').classList.add('hidden');
+            
+            showStatus('Fetching playlist data...');
+            
             try {
-                await executeDeepExtraction();
-            } catch (err) {
-                toggleStatusLog('Error fetching playlist items.');
+                await fetchAllPlaylistItems();
+            } catch (error) {
+                console.error(error);
+                showStatus('Error fetching playlist. Please check your API key or Playlist ID.');
             }
         }
 
-        async function executeDeepExtraction() {
-            let activeLoop = true;
-            while (activeLoop) {
-                let proxyUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${extractedPlaylistId}&key=${CORE_API_KEY}`;
-                if (tokenTracker) proxyUrl += `&pageToken=${tokenTracker}`;
-
-                const res = await fetch(proxyUrl);
-                const data = await res.json();
-                
-                const sanitized = data.items.filter(node => node.snippet && node.snippet.thumbnails);
-                datasetContainer.push(...sanitized);
-                
-                if (data.nextPageToken) tokenTracker = data.nextPageToken;
-                else activeLoop = false;
-            }
-            toggleStatusLog('');
-            renderVideoBatch();
-        }
-
-        function renderVideoBatch() {
-            const targetGrid = document.getElementById('mainGrid');
-            const ceiling = Math.min(globalPointer + BATCH_LIMIT, datasetContainer.length);
+        // Deep fetch loop to get ALL videos (even if 500 or 1000+)
+        async function fetchAllPlaylistItems() {
+            let hasNext = true;
             
-            for (let index = globalPointer; index < ceiling; index++) {
-                const nodeItem = datasetContainer[index];
-                const metaTitle = nodeItem.snippet.title;
-                const imgThumb = nodeItem.snippet.thumbnails.medium.url;
-                const nativeVideoId = nodeItem.snippet.resourceId.videoId;
+            while (hasNext) {
+                let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${currentPlaylistId}&key=${API_KEY}`;
+                if (nextPageToken) {
+                    url += `&pageToken=${nextPageToken}`;
+                }
 
-                const wrapperCard = document.createElement('div');
-                wrapperCard.className = 'video-card';
-                wrapperCard.onclick = () => getDownloadStreams(nativeVideoId, metaTitle);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('API request failed');
                 
-                wrapperCard.innerHTML = `
-                    <div class="thumb-box"><img src="${imgThumb}" loading="lazy"></div>
+                const data = await response.json();
+                
+                // Filter out private or deleted videos
+                const validItems = data.items.filter(item => 
+                    item.snippet && 
+                    item.snippet.thumbnails && 
+                    item.snippet.title !== 'Private video' && 
+                    item.snippet.title !== 'Deleted video'
+                );
+
+                allVideos.push(...validItems);
+                
+                if (data.nextPageToken) {
+                    nextPageToken = data.nextPageToken;
+                } else {
+                    hasNext = false;
+                }
+            }
+
+            hideStatus();
+            
+            if (allVideos.length === 0) {
+                showStatus('No public videos found in this playlist.');
+            } else {
+                renderNextBatch();
+            }
+        }
+
+        // Renders chunks of 100 videos
+        function renderNextBatch() {
+            const grid = document.getElementById('videoGrid');
+            const limit = Math.min(currentIndex + BATCH_SIZE, allVideos.length);
+            
+            for (let i = currentIndex; i < limit; i++) {
+                const item = allVideos[i];
+                const title = item.snippet.title;
+                const thumbnail = item.snippet.thumbnails.medium ? item.snippet.thumbnails.medium.url : item.snippet.thumbnails.default.url;
+                const videoId = item.snippet.resourceId.videoId;
+                
+                // Target external redirect URL rule specified by user
+                const redirectUrl = `https://genyoutube.online/en1/url=https://www.youtube.com/watch?v=${videoId}`;
+
+                const card = document.createElement('a');
+                card.className = 'video-card';
+                card.href = redirectUrl;
+                card.target = '_blank'; // Opens in new tab
+                
+                card.innerHTML = `
+                    <div class="thumbnail-container">
+                        <img src="${thumbnail}" alt="${title}" loading="lazy">
+                    </div>
                     <div class="video-info">
-                        <div class="video-title">${metaTitle}</div>
-                        <div class="action-btn"><i class="bi bi-download"></i> Download Options</div>
+                        <div class="video-title">${title}</div>
+                        <div class="video-index">Video #${i + 1}</div>
                     </div>
                 `;
-                targetGrid.appendChild(wrapperCard);
+                grid.appendChild(card);
             }
-            globalPointer = ceiling;
-            const moreBtn = document.getElementById('btnLoadMore');
-            if (globalPointer < datasetContainer.length) moreBtn.classList.remove('hidden');
-            else moreBtn.classList.add('hidden');
-        }
 
-        // Bypassing Iframe: Grabbing GenYouTube parsing endpoints data securely
-        async function getDownloadStreams(videoId, title) {
-            document.getElementById('modalVideoTitle').textContent = title;
-            const optionsBody = document.getElementById('modalOptionsBody');
-            optionsBody.innerHTML = '<div class="text-center my-3"><div class="spinner-border text-danger"></div><p class="mt-2 text-secondary">Fetching GenYouTube streams...</p></div>';
-            
-            const processingModal = new bootstrap.Modal(document.getElementById('downloadProcessModal'));
-            processingModal.show();
+            currentIndex = limit;
 
-            try {
-                // Fetching streams via secure direct extraction gateway
-                const apiFetch = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://api.de-api.com/yt/download?id=' + videoId)}`);
-                const wrapper = await apiFetch.json();
-                const resData = JSON.parse(wrapper.contents);
-
-                if (resData && resData.status === 'success' && resData.links.length > 0) {
-                    optionsBody.innerHTML = '';
-                    resData.links.forEach(stream => {
-                        const btn = document.createElement('a');
-                        btn.className = 'quality-item-btn';
-                        btn.href = stream.url;
-                        btn.setAttribute('target', '_blank');
-                        btn.innerHTML = `
-                            <span><i class="bi bi-cloud-arrow-down-fill me-2"></i> Download ${stream.quality}</span>
-                            <span class="stream-type">${stream.ext.toUpperCase()}</span>
-                        `;
-                        optionsBody.appendChild(btn);
-                    });
-                } else {
-                    throw new Error('No links found');
-                }
-            } catch (err) {
-                // Fail-safe backup routing if direct stream hits cross-origin limits
-                optionsBody.innerHTML = `
-                    <div class="text-center p-2">
-                        <p class="text-secondary mb-3">Browser blocked inside window setup. Click below to download directly:</p>
-                        <a href="https://genyoutube.online/en1/url=https://www.youtube.com/watch?v=${videoId}" target="_blank" class="btn btn-danger w-100 py-3 fw-bold">
-                            <i class="bi bi-box-arrow-up-right me-2"></i> Open GenYouTube Download Page
-                        </a>
-                    </div>`;
+            // Show/Hide Load More Button
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (currentIndex < allVideos.length) {
+                loadMoreBtn.classList.remove('hidden');
+            } else {
+                loadMoreBtn.classList.add('hidden');
             }
         }
 
-        function toggleStatusLog(msg) {
-            const container = document.getElementById('statusAlert');
-            if(msg) { container.textContent = msg; container.classList.remove('hidden'); }
-            else { container.classList.add('hidden'); }
+        function showStatus(msg) {
+            const status = document.getElementById('status');
+            status.textContent = msg;
+            status.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            document.getElementById('status').classList.add('hidden');
         }
     </script>
 </body>
