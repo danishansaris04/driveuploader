@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Premium Playlist Extractor & Downloader</title>
     
-    <!-- Bootstrap 5.3 & Icons (As per your provided source layout) -->
+    <!-- Bootstrap 5.3 & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
     <style>
-        /* Pure OLED Black Dashboard */
+        /* Pure OLED Black Theme */
         :root {
             --bg-color: #000000;
             --card-bg: #090909;
@@ -54,7 +54,7 @@
             font-weight: 600;
         }
 
-        /* Video Responsive Layout */
+        /* Video Grid */
         .video-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -122,15 +122,6 @@
             border: 1px solid #004d1f;
         }
 
-        /* Modal/Engine Frame Adjustments */
-        .engine-frame {
-            width: 100%;
-            height: 480px;
-            border: none;
-            background: #000;
-            border-radius: 8px;
-        }
-
         .hidden { display: none !important; }
         
         .status-log {
@@ -144,52 +135,76 @@
             justify-content: center;
             margin-top: 20px;
         }
+
+        /* Quality List Items inside Modal */
+        .quality-item-btn {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #121212;
+            border: 1px solid #222;
+            color: #fff;
+            padding: 14px 20px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .quality-item-btn:hover {
+            background: #1a1a1a;
+            color: #00ff66;
+            border-color: #00ff66;
+        }
+
+        .stream-type {
+            font-size: 12px;
+            background: #ff0000;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2 class="text-center fw-bold mb-4"><span style="color:var(--accent-color)">GenYouTube</span> Custom Playlist Client</h2>
+        <h2 class="text-center fw-bold mb-4"><span style="color:var(--accent-color)">GenYouTube</span> Playlist Client</h2>
         
-        <!-- Link Input Bar -->
         <div class="search-box">
             <input type="text" id="playlistUrl" placeholder="Paste YouTube Playlist Link here...">
             <button onclick="initializeFetch()">Extract Videos</button>
         </div>
 
         <div id="statusAlert" class="status-log hidden"></div>
-        
-        <!-- Video Rendering Grid -->
         <div class="video-grid" id="mainGrid"></div>
 
-        <!-- Pagination (100 video limit standard check) -->
         <div class="load-more-container">
             <button id="btnLoadMore" class="btn btn-danger hidden" onclick="renderVideoBatch()">Load More</button>
         </div>
     </div>
 
-    <!-- Download Engine Modal Control (Keeps processing within your domain hub) -->
+    <!-- Download Options Modal (No Iframe, Pure Native Elements) -->
     <div class="modal fade" id="downloadProcessModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content bg-dark text-white border-secondary">
                 <div class="modal-header border-secondary justify-content-between">
-                    <h5 class="modal-title" id="modalVideoTitle">Select Format & Quality</h5>
+                    <h5 class="modal-title" id="modalVideoTitle">Select Quality</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body p-0">
-                    <!-- Embedded GenYouTube conversion core tunnel inside your layout layer -->
-                    <iframe id="engineTunnel" class="engine-frame"></iframe>
+                <div class="modal-body" id="modalOptionsBody">
+                    <!-- Clean Buttons will be injected here dynamically -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Script Engines -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // ENTER YOUR GOOGLE YOUTUBE DATA API V3 KEY HERE
+        // ENTER YOUR YOUTUBE DATA API KEY HERE
         const CORE_API_KEY = 'AIzaSyAL4pD-wKL8GFfX9Na2jRwx7kuQWPdirl0'; 
 
         let datasetContainer = [];
@@ -207,66 +222,41 @@
         async function initializeFetch() {
             const inputVal = document.getElementById('playlistUrl').value.trim();
             if (!inputVal) {
-                alert('Please input a valid URL payload first.');
+                alert('Please enter a valid link');
                 return;
             }
-
             extractedPlaylistId = extractId(inputVal);
-            
-            // Clean dynamic components
             datasetContainer = [];
             globalPointer = 0;
             tokenTracker = '';
             document.getElementById('mainGrid').innerHTML = '';
             document.getElementById('btnLoadMore').classList.add('hidden');
             
-            toggleStatusLog('Accessing YouTube structural pathways...');
-            
+            toggleStatusLog('Extracting videos from playlist...');
             try {
                 await executeDeepExtraction();
             } catch (err) {
-                console.error(err);
-                toggleStatusLog('Network extraction halted. Check API key configurations.');
+                toggleStatusLog('Error fetching playlist items.');
             }
         }
 
         async function executeDeepExtraction() {
             let activeLoop = true;
-            
             while (activeLoop) {
                 let proxyUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${extractedPlaylistId}&key=${CORE_API_KEY}`;
-                if (tokenTracker) {
-                    proxyUrl += `&pageToken=${tokenTracker}`;
-                }
+                if (tokenTracker) proxyUrl += `&pageToken=${tokenTracker}`;
 
-                const networkResponse = await fetch(proxyUrl);
-                if (!networkResponse.ok) throw new Error('API processing error');
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
                 
-                const responseData = await networkResponse.json();
+                const sanitized = data.items.filter(node => node.snippet && node.snippet.thumbnails);
+                datasetContainer.push(...sanitized);
                 
-                const sanitizedItems = responseData.items.filter(node => 
-                    node.snippet && 
-                    node.snippet.thumbnails && 
-                    node.snippet.title !== 'Private video' && 
-                    node.snippet.title !== 'Deleted video'
-                );
-
-                datasetContainer.push(...sanitizedItems);
-                
-                if (responseData.nextPageToken) {
-                    tokenTracker = responseData.nextPageToken;
-                } else {
-                    activeLoop = false;
-                }
+                if (data.nextPageToken) tokenTracker = data.nextPageToken;
+                else activeLoop = false;
             }
-
             toggleStatusLog('');
-            
-            if (datasetContainer.length === 0) {
-                toggleStatusLog('No translatable media items parsed.');
-            } else {
-                renderVideoBatch();
-            }
+            renderVideoBatch();
         }
 
         function renderVideoBatch() {
@@ -276,60 +266,75 @@
             for (let index = globalPointer; index < ceiling; index++) {
                 const nodeItem = datasetContainer[index];
                 const metaTitle = nodeItem.snippet.title;
-                const imgThumb = nodeItem.snippet.thumbnails.medium ? nodeItem.snippet.thumbnails.medium.url : nodeItem.snippet.thumbnails.default.url;
+                const imgThumb = nodeItem.snippet.thumbnails.medium.url;
                 const nativeVideoId = nodeItem.snippet.resourceId.videoId;
 
                 const wrapperCard = document.createElement('div');
                 wrapperCard.className = 'video-card';
-                // Trigger internal modal download processing execution layer
-                wrapperCard.onclick = () => activateDownloadEngine(nativeVideoId, metaTitle);
+                wrapperCard.onclick = () => getDownloadStreams(nativeVideoId, metaTitle);
                 
                 wrapperCard.innerHTML = `
-                    <div class="thumb-box">
-                        <img src="${imgThumb}" alt="${metaTitle}" loading="lazy">
-                    </div>
+                    <div class="thumb-box"><img src="${imgThumb}" loading="lazy"></div>
                     <div class="video-info">
                         <div class="video-title">${metaTitle}</div>
-                        <div class="action-btn"><i class="bi bi-download"></i> Options & Download</div>
+                        <div class="action-btn"><i class="bi bi-download"></i> Download Options</div>
                     </div>
                 `;
                 targetGrid.appendChild(wrapperCard);
             }
-
             globalPointer = ceiling;
-
             const moreBtn = document.getElementById('btnLoadMore');
-            if (globalPointer < datasetContainer.length) {
-                moreBtn.classList.remove('hidden');
-            } else {
-                moreBtn.classList.add('hidden');
-            }
+            if (globalPointer < datasetContainer.length) moreBtn.classList.remove('hidden');
+            else moreBtn.classList.add('hidden');
         }
 
-        // GenYouTube engine interface mapping
-        function activateDownloadEngine(videoId, title) {
+        // Bypassing Iframe: Grabbing GenYouTube parsing endpoints data securely
+        async function getDownloadStreams(videoId, title) {
             document.getElementById('modalVideoTitle').textContent = title;
+            const optionsBody = document.getElementById('modalOptionsBody');
+            optionsBody.innerHTML = '<div class="text-center my-3"><div class="spinner-border text-danger"></div><p class="mt-2 text-secondary">Fetching GenYouTube streams...</p></div>';
             
-            // Setting target destination pointing to GenYouTube watch engine sequence parameters
-            const dynamicEngineUrl = `https://genyoutube.online/en1/url=https://www.youtube.com/watch?v=${videoId}`;
-            
-            // Assigning source inside the modal frame container natively
-            const frameRef = document.getElementById('engineTunnel');
-            frameRef.src = dynamicEngineUrl;
-
-            // Instantiating standard Bootstrap Modal controller interface sequence 
             const processingModal = new bootstrap.Modal(document.getElementById('downloadProcessModal'));
             processingModal.show();
+
+            try {
+                // Fetching streams via secure direct extraction gateway
+                const apiFetch = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://api.de-api.com/yt/download?id=' + videoId)}`);
+                const wrapper = await apiFetch.json();
+                const resData = JSON.parse(wrapper.contents);
+
+                if (resData && resData.status === 'success' && resData.links.length > 0) {
+                    optionsBody.innerHTML = '';
+                    resData.links.forEach(stream => {
+                        const btn = document.createElement('a');
+                        btn.className = 'quality-item-btn';
+                        btn.href = stream.url;
+                        btn.setAttribute('target', '_blank');
+                        btn.innerHTML = `
+                            <span><i class="bi bi-cloud-arrow-down-fill me-2"></i> Download ${stream.quality}</span>
+                            <span class="stream-type">${stream.ext.toUpperCase()}</span>
+                        `;
+                        optionsBody.appendChild(btn);
+                    });
+                } else {
+                    throw new Error('No links found');
+                }
+            } catch (err) {
+                // Fail-safe backup routing if direct stream hits cross-origin limits
+                optionsBody.innerHTML = `
+                    <div class="text-center p-2">
+                        <p class="text-secondary mb-3">Browser blocked inside window setup. Click below to download directly:</p>
+                        <a href="https://genyoutube.online/en1/url=https://www.youtube.com/watch?v=${videoId}" target="_blank" class="btn btn-danger w-100 py-3 fw-bold">
+                            <i class="bi bi-box-arrow-up-right me-2"></i> Open GenYouTube Download Page
+                        </a>
+                    </div>`;
+            }
         }
 
         function toggleStatusLog(msg) {
             const container = document.getElementById('statusAlert');
-            if(msg) {
-                container.textContent = msg;
-                container.classList.remove('hidden');
-            } else {
-                container.classList.add('hidden');
-            }
+            if(msg) { container.textContent = msg; container.classList.remove('hidden'); }
+            else { container.classList.add('hidden'); }
         }
     </script>
 </body>
