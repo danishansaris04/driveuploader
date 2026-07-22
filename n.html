@@ -90,7 +90,30 @@
     box-shadow: 0 0 0 3px var(--accent-glow);
   }
 
-  /* Interactive TMDB Search Grid */
+  /* Multi-source Tabs */
+  .poster-sources {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .source-btn {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .source-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0, 242, 254, 0.1);
+  }
+
+  /* Interactive Search Grid */
   .search-results-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -196,15 +219,34 @@
   <div class="glass-card">
     <div class="card-title">🚀 New Push Broadcast</div>
     
-    <!-- Poster Attachment Search -->
+    <!-- Poster Attachment Sources -->
     <div class="form-group">
-      <label>Attach TMDB Poster (Optional)</label>
-      <input type="text" id="tmdbSearchInput" placeholder="Type movie/series name (e.g. Stranger Things)...">
-      
-      <!-- Dynamic Search Grid -->
-      <div id="tmdbResults" class="search-results-grid"></div>
+      <label>Attach Poster (Select Source)</label>
+      <div class="poster-sources">
+        <button class="source-btn active" id="btnModeImdb" onclick="setPosterMode('imdb')">💛 IMDb Search</button>
+        <button class="source-btn" id="btnModeTmdb" onclick="setPosterMode('tmdb')">🎬 TMDB Search</button>
+        <button class="source-btn" id="btnModeUrl" onclick="setPosterMode('url')">🔗 Image Link / Google</button>
+      </div>
 
-      <!-- Selected Preview -->
+      <!-- Mode 1: IMDb Search -->
+      <div id="modeImdbContainer">
+        <input type="text" id="imdbSearchInput" placeholder="Search IMDb (e.g. Oppenheimer, Batman, Avatar)...">
+        <div id="imdbResults" class="search-results-grid"></div>
+      </div>
+
+      <!-- Mode 2: TMDB Search -->
+      <div id="modeTmdbContainer" style="display:none;">
+        <input type="text" id="tmdbSearchInput" placeholder="Search TMDB (e.g. Stranger Things)...">
+        <div id="tmdbResults" class="search-results-grid"></div>
+      </div>
+
+      <!-- Mode 3: Direct URL -->
+      <div id="modeUrlContainer" style="display:none; gap:10px;">
+        <input type="text" id="directUrlInput" placeholder="Paste image link from Google or Web (e.g. https://...)">
+        <button class="btn-submit" id="btnAttachUrl" style="width:110px; margin-top:8px; font-size:13px; padding:10px;">Preview</button>
+      </div>
+
+      <!-- Selected Poster Preview -->
       <div id="selectedPosterBox" class="poster-preview-pill" style="display:none;">
         <img id="selectedPosterImg" src="" alt="" referrerpolicy="no-referrer">
         <div class="info">
@@ -247,8 +289,13 @@
   var dbSecretInput = document.getElementById("dbSecretInput");
   var configStatus = document.getElementById("configStatus");
   
+  var imdbSearchInput = document.getElementById("imdbSearchInput");
+  var imdbResults = document.getElementById("imdbResults");
   var tmdbSearchInput = document.getElementById("tmdbSearchInput");
   var tmdbResults = document.getElementById("tmdbResults");
+  var directUrlInput = document.getElementById("directUrlInput");
+  var btnAttachUrl = document.getElementById("btnAttachUrl");
+
   var selectedPosterBox = document.getElementById("selectedPosterBox");
   var selectedPosterImg = document.getElementById("selectedPosterImg");
   var selectedPosterTitle = document.getElementById("selectedPosterTitle");
@@ -259,7 +306,7 @@
   var historyList = document.getElementById("historyList");
 
   var selectedPoster = null;
-  var tmdbSearchTimer = null;
+  var searchTimer = null;
 
   function getDbUrl() { return (localStorage.getItem(LS_URL_KEY) || DEFAULT_DB_URL).replace(/\/$/, ""); }
   function getDbSecret() { return localStorage.getItem(LS_SECRET_KEY) || ""; }
@@ -274,15 +321,66 @@
     configStatus.textContent = "Saved configuration successfully.";
   });
 
-  /* TMDB API Logic & Poster Image Fix */
-  tmdbSearchInput.addEventListener("input", function () {
-    var q = tmdbSearchInput.value.trim();
-    clearTimeout(tmdbSearchTimer);
-    if (q.length < 2) { tmdbResults.innerHTML = ""; return; }
-    tmdbSearchTimer = setTimeout(function () { fetchMoviesAndTV(q); }, 300);
+  /* Mode Switcher */
+  function setPosterMode(mode) {
+    document.getElementById("btnModeImdb").classList.toggle("active", mode === 'imdb');
+    document.getElementById("btnModeTmdb").classList.toggle("active", mode === 'tmdb');
+    document.getElementById("btnModeUrl").classList.toggle("active", mode === 'url');
+
+    document.getElementById("modeImdbContainer").style.display = mode === 'imdb' ? 'block' : 'none';
+    document.getElementById("modeTmdbContainer").style.display = mode === 'tmdb' ? 'block' : 'none';
+    document.getElementById("modeUrlContainer").style.display = mode === 'url' ? 'flex' : 'none';
+  }
+
+  /* 1. IMDb Search Logic (Bina API key ke fast search) */
+  imdbSearchInput.addEventListener("input", function() {
+    var q = imdbSearchInput.value.trim();
+    clearTimeout(searchTimer);
+    if (q.length < 2) { imdbResults.innerHTML = ""; return; }
+    searchTimer = setTimeout(function () { fetchIMDb(q); }, 300);
   });
 
-  function fetchMoviesAndTV(query) {
+  function fetchIMDb(query) {
+    imdbResults.innerHTML = '<div style="grid-column:1/-1; font-size:12px; color:var(--text-muted)">Searching IMDb...</div>';
+    
+    var cleanQuery = query.toLowerCase().replace(/[^a-z0-9]/g, '');
+    var firstChar = cleanQuery.charAt(0) || 'a';
+    
+    // Official IMDb Auto-suggest Endpoint
+    var url = "https://v3.sg.media-imdb.com/suggestion/x/" + firstChar + "/" + encodeURIComponent(cleanQuery) + ".json";
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        var items = data.d || [];
+        var posters = [];
+        
+        items.forEach(item => {
+          // Poster Image Available hai toh include karo
+          if (item.i && item.i.imageUrl) {
+            posters.push({
+              title: item.l + (item.y ? " (" + item.y + ")" : ""),
+              poster: item.i.imageUrl
+            });
+          }
+        });
+
+        renderGridResults(imdbResults, posters);
+      })
+      .catch(() => {
+        imdbResults.innerHTML = '<div style="grid-column:1/-1; font-size:12px; color:var(--text-muted)">Could not fetch from IMDb. Try TMDB.</div>';
+      });
+  }
+
+  /* 2. TMDB Search Logic */
+  tmdbSearchInput.addEventListener("input", function () {
+    var q = tmdbSearchInput.value.trim();
+    clearTimeout(searchTimer);
+    if (q.length < 2) { tmdbResults.innerHTML = ""; return; }
+    searchTimer = setTimeout(function () { fetchTMDB(q); }, 300);
+  });
+
+  function fetchTMDB(query) {
     tmdbResults.innerHTML = '<div style="grid-column:1/-1; font-size:12px; color:var(--text-muted)">Searching TMDB...</div>';
     
     var movieUrl = "https://api.themoviedb.org/3/search/movie?api_key=" + TMDB_API_KEY + "&query=" + encodeURIComponent(query);
@@ -299,18 +397,19 @@
       movies.forEach(m => { if(m.poster_path) combined.push({ title: m.title, poster: TMDB_IMAGE_BASE + m.poster_path }); });
       tvs.forEach(t => { if(t.poster_path) combined.push({ title: t.name, poster: TMDB_IMAGE_BASE + t.poster_path }); });
 
-      renderTMDBResults(combined);
+      renderGridResults(tmdbResults, combined);
     });
   }
 
-  function renderTMDBResults(items) {
+  /* Shared Render Grid Function */
+  function renderGridResults(container, items) {
     if (items.length === 0) {
-      tmdbResults.innerHTML = '<div style="grid-column:1/-1; font-size:12px; color:var(--text-muted)">No poster results found.</div>';
+      container.innerHTML = '<div style="grid-column:1/-1; font-size:12px; color:var(--text-muted)">No poster results found.</div>';
       return;
     }
 
     var html = "";
-    items.forEach((item, index) => {
+    items.forEach((item) => {
       html += `
         <div class="poster-card" onclick="selectPoster('${item.poster.replace(/'/g, "\\'")}', '${item.title.replace(/'/g, "\\'")}')">
           <img src="${item.poster}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='https://via.placeholder.com/342x513?text=No+Poster';">
@@ -318,17 +417,28 @@
         </div>
       `;
     });
-    tmdbResults.innerHTML = html;
+    container.innerHTML = html;
   }
 
+  /* 3. Direct Image URL Attachment */
+  btnAttachUrl.addEventListener("click", function() {
+    var url = directUrlInput.value.trim();
+    if(!url) return;
+    selectPoster(url, "Custom Image Link");
+    directUrlInput.value = "";
+  });
+
+  /* Poster Selection Handler */
   function selectPoster(url, title) {
     selectedPoster = { url: url, title: title };
     selectedPosterImg.src = url;
     selectedPosterTitle.textContent = title;
     selectedPosterBox.style.display = "flex";
     
-    if(!titleInput.value) titleInput.value = title;
+    if(!titleInput.value && title !== "Custom Image Link") titleInput.value = title;
+    imdbResults.innerHTML = "";
     tmdbResults.innerHTML = "";
+    imdbSearchInput.value = "";
     tmdbSearchInput.value = "";
   }
 
